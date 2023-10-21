@@ -1,34 +1,42 @@
 const mongoose = require('mongoose');
 const Transaction = require('../models/transModel');
 const User = require('../models/userModel');
-const Fee = require('../models/feeModel');
+const cryptoPriceModel = require('../models/cryptoPriceModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const GatewayHandler = require('../utils/gatewayHandler');
-const getCurrentTime = require('../utils/getCurrentTime');
-const sendTemplatedEmail = require('../utils/email');
 
-exports.withdrawRequest = catchAsync(async (req, res, next) => {
-  // Add a condition to the query based on the user's role
+async function getCryptoPrice(symbol) {
+  const symbolPrice = await cryptoPriceModel.findOne({ symbol });
+  if (!symbolPrice) {
+    throw new Error(`No price found for symbol: ${symbol}`);
+  }
+  return symbolPrice.usdPrice;
+}
 
+exports.createWithdrawal = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { amount } = req.body;
-    let { network, token } = req.body;
-    const userId = req.user._id;
-    const type = 'withdrawal';
-    const status = 'pending';
+    let { paymentMethod, token } = req.body;
+    const { amountUSD } = req.body;
 
-    network = network ? network.toUpperCase() : undefined;
+    paymentMethod = paymentMethod ? paymentMethod.toUpperCase() : undefined;
     token = token ? token.toUpperCase() : undefined;
+    if (paymentMethod === token) token = undefined;
 
-    let user = await User.findOne({ _id: req.user._id });
+    // Fetch user details to check balance and withdrawal address
+    const user = await User.findById(userId).session(session);
 
-    if (network === token) token = undefined;
+    if (!user) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(new AppError('User not found', 404));
+    }
 
-    if (!['ETH', 'BTC', 'TRX', 'BNB'].includes(network)) {
+    if (!['ETH', 'BTC', 'TRX', 'BNB'].includes(paymentMethod)) {
       await session.abortTransaction();
       session.endSession();
       return next(
@@ -44,7 +52,7 @@ exports.withdrawRequest = catchAsync(async (req, res, next) => {
       );
     }
 
-    if (token && network === 'BTC') {
+    if (token && paymentMethod === 'BTC') {
       await session.abortTransaction();
       session.endSession();
       return next(
@@ -52,77 +60,50 @@ exports.withdrawRequest = catchAsync(async (req, res, next) => {
       );
     }
 
-    const paymentMethod = token ? 'USD' : network;
-
-    // Retrieve the fee for the respective cryptocurrency from the database
-    const fee = await Fee.findOne({ coin: network });
-    if (!fee) {
+    if (user.accountBalance < amountUSD) {
       await session.abortTransaction();
       session.endSession();
-      return next(new AppError('Fee not found for the network', 404));
+      return next(new AppError('Insufficient balance', 400));
     }
-    const effectiveFee = token ? fee.token : fee.native;
 
-    if (user.accountBalance[paymentMethod] < amount) {
+    if (!user.withdrawalAddresses[paymentMethod]) {
       await session.abortTransaction();
       session.endSession();
-      return next(
-        new AppError('Requested amount more than account balance.', 400)
-      );
+      return next(new AppError(`${paymentMethod} address is undefined`, 400));
+    }
+    // Convert USD to desired cryptocurrency
+    let cryptoAmount;
+    if (token) {
+      cryptoAmount = amountUSD;
+    } else {
+      const priceUSD = await getCryptoPrice(paymentMethod);
+      cryptoAmount = amountUSD / priceUSD;
     }
 
-    if (amount - effectiveFee <= effectiveFee) {
-      await session.abortTransaction();
-      session.endSession();
-      return next(new AppError('Requested amount plus fee or too small', 400));
-    }
+    // Deduct the user's balance by the withdrawal amount
+    user.accountBalance -= amountUSD;
+    await user.save({ validateBeforeSave: false, session });
 
-    if (!user.withdrawalAddresses[network]) {
-      await session.abortTransaction();
-      session.endSession();
-      return next(new AppError(`${network} address is undefined`, 400));
-    }
-
-    // Check if user has 'withdraw' in their restrictedActions
-    if (user.restrictedActions && user.restrictedActions.includes('withdraw')) {
-      return next(
-        new AppError('Something went wrong please try again later! 500', 403)
-      );
-    }
-
-    const transactionReference = network + ':' + token;
-
-    // update user balance
-    user = await User.findByIdAndUpdate(
-      user._id,
-      { $inc: { [`accountBalance.${paymentMethod}`]: -amount } },
-      { validateBeforeSave: false, new: true, session }
-    );
-
-    // Record the transaction
+    // Record the withdrawal transaction (status could be 'pending' initially)
     const newTransaction = new Transaction({
-      userId,
-      amount,
-      type,
-      paymentMethod,
-      relatedBalance: user.accountBalance[paymentMethod],
-      status,
-      transactionReference,
+      userID: userId,
+      action: 'withdraw',
+      amountUSD,
+      cryptoType: paymentMethod,
+      cryptoAmount,
+      status: 'pending',
     });
+    await newTransaction.save({ session });
+    const transactionId = newTransaction._id;
 
-    const savedTransaction = await newTransaction.save({ session });
-
-    // Access transaction ID
-    const transactionId = savedTransaction._id.toString();
-
-    //prepare Gateway api call
+    // Send to the gateway
     const params = {
-      network: network,
+      network: paymentMethod,
       token: token,
-      address: user.withdrawalAddresses[network],
+      address: user.withdrawalAddresses[paymentMethod],
       statusURL: process.env.IPN_HANDLER,
       label: transactionId,
-      amount: amount - effectiveFee,
+      amount: cryptoAmount,
     };
 
     // delete undefined params (token)
@@ -132,35 +113,25 @@ exports.withdrawRequest = catchAsync(async (req, res, next) => {
       }
     });
 
-    // send request to Gateway
-    await GatewayHandler('send', params);
+    const gatewayResponse = await GatewayHandler('send', params);
+
+    // We might want to validate the response here
+    if (!gatewayResponse || !gatewayResponse.result) {
+      throw new Error('Failed to initiate gateway request.');
+    }
 
     // Commit the transaction
     await session.commitTransaction();
     session.endSession();
 
-    const emailData = {
-      name: user.name,
-      email: user.email,
-      paymentMethod,
-      type: 'Withdrawal',
-      amount,
-      date: getCurrentTime(),
-    };
-    await sendTemplatedEmail(
-      'activity',
-      'Withdrawal Confirmation: ' + amount + ' ' + paymentMethod,
-      emailData
-    );
-
     res
       .status(201)
-      .json({ message: 'Request created', data: { newTransaction } });
+      .json({ message: 'Withdrawal initiated', data: { newTransaction } });
   } catch (error) {
     // Rollback the transaction on error
     await session.abortTransaction();
     session.endSession();
 
-    return next(new AppError('Error creating withdraw request', 400));
+    return next(new AppError('Error initiating withdrawal', 400));
   }
 });

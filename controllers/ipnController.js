@@ -1,16 +1,24 @@
 const crypto = require('crypto');
-const depositController = require('./depositController');
 const Transaction = require('../models/transModel');
-const Proof = require('./../models/proofModel');
-const maskEmail = require('../utils/maskEmail');
 const User = require('../models/userModel');
+const cryptoPriceModel = require('../models/cryptoPriceModel');
 
-async function transactionExists(transactionReference, userId) {
+async function transactionExists(txhash, userId) {
   const existingTransaction = await Transaction.findOne({
-    transactionReference,
+    txhash,
     userId,
   });
   return !!existingTransaction;
+}
+
+async function getCryptoPrice(symbol) {
+  const symbolPrice = await cryptoPriceModel.findOne({
+    symbol,
+  });
+  if (!symbolPrice) {
+    throw new Error(`No price found for symbol: ${symbol}`);
+  }
+  return symbolPrice.usdPrice;
 }
 
 async function getTransaction(_id) {
@@ -46,7 +54,7 @@ exports.receive = async (req, res) => {
   //Deposit logic
   if (data['type'] === 'in' && +data['confirmation'] > 0) {
     // Extract userId and planId from the label
-    const [userId, planId] = data['label'].split('.');
+    const [userId] = data['label'];
 
     // Set paymentMethod to token or currency if token is empty
     let paymentMethod;
@@ -55,45 +63,36 @@ exports.receive = async (req, res) => {
       data['token'] === 'USDT' ||
       data['token'] === 'USDC'
     ) {
-      paymentMethod = 'USD';
+      paymentMethod = data['token'];
     } else {
       paymentMethod = data['currency'];
     }
 
-    // Set transactionReference to txid
-    const transactionReference =
-      data['currency'] + ':' + data['txid'] + ':' + data['pos'];
+    // Set cryptoType to network
+    const cryptoType = data['currency'];
+
+    // Set txHash to txId:position
+    const txHash = data['txid'] + ':' + data['pos'];
+
+    // Set memo to paymentMethod (USD | network )
+    const memo = paymentMethod;
 
     // If the transaction already exists, send an appropriate response
-    const exists = await transactionExists(transactionReference, userId);
+    const exists = await transactionExists(txHash, userId);
     if (exists) {
       return res.status(200).send();
     }
-
-    const user = await User.findById(userId);
-
-    const proofRequest = {
-      email: maskEmail(user.email),
-      txid: data['txid'],
-      network: data['currency'],
-      token: data['token'] ? data['token'] : data['currency'],
-      type: 'deposit',
-      amount: +data['amount'],
-    };
-    const proof = new Proof(proofRequest);
-    // Save proof to the database
-    await proof.save();
-
-    // Create a new request object with the required data
-    const ipn = true;
+    const cryptoUsdPrice = await getCryptoPrice(cryptoType);
     const newReq = {
       body: {
         userId,
-        planId,
-        amount: +data['amount'],
-        paymentMethod,
-        transactionReference,
-        ipn,
+        action: 'deposit', // since it's a deposit controller
+        cryptoType, // already extracted from IPN
+        txHash, // already extracted from IPN
+        amountUSD: +data['amount'] * cryptoUsdPrice, // assuming the IPN provides the amount in USD
+        cryptoAmount: +data['amount'], // assuming the IPN provides the amount in the cryptocurrency
+        status: 'completed', // start as completed
+        memo, // already extracted from IPN
       },
     };
 
@@ -107,33 +106,11 @@ exports.receive = async (req, res) => {
     // If the transaction already exists, send an appropriate response
     const transaction = await getTransaction(transactionId);
 
-    if (transaction) {
-      const proofCheck = await Proof.findOne({
-        txid: data['txid'],
-      });
-      if (!proofCheck) {
-        const user = await User.findById(transaction.userId);
-
-        const proofRequest = {
-          email: maskEmail(user.email),
-          txid: data['txid'],
-          network: data['currency'],
-          token: data['token'] ? data['token'] : data['currency'],
-          type: 'withdrawal',
-          amount: +data['amount'],
-        };
-        const proof = new Proof(proofRequest);
-        // Save proof to the database
-        await proof.save();
-      }
-
-      const transactionReference =
-        transaction.transactionReference + ':' + data['txid'];
-
+    if (transaction && !transaction.txHash) {
       try {
-        //update transaction with completed status and txid in transactionReference (network:token:txid)
+        //update transaction with completed status and txHash
         await Transaction.findByIdAndUpdate(transactionId, {
-          transactionReference,
+          txHash: data['txid'],
           status: 'completed',
         });
 

@@ -118,6 +118,39 @@ exports.login = catchAsync(async (req, res, next) => {
   createSendToken(user, 200, res);
 });
 
+exports.validateWebSocketToken = async (token) => {
+  try {
+    if (!token) {
+      throw new AppError('No token provided.', 401);
+    }
+
+    // Verify the token and extract the payload
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+    // Check if the user still exists
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+      throw new AppError(
+        'The user belonging to this token no longer exists.',
+        401
+      );
+    }
+
+    // Check if user has 'access' in their restrictedActions
+    if (
+      currentUser.restrictedActions &&
+      currentUser.restrictedActions.includes('access')
+    ) {
+      throw new AppError('Restricted access.', 403);
+    }
+
+    return currentUser;
+  } catch (error) {
+    console.error('Token validation error:', error.message);
+    return null; // Instead of throwing an error, just return null
+  }
+};
+
 exports.protect = async (req, res, next) => {
   try {
     let token;

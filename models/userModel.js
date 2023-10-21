@@ -53,11 +53,8 @@ const userSchema = new mongoose.Schema({
     },
   },
   accountBalance: {
-    BTC: { type: Number, default: 0 },
-    ETH: { type: Number, default: 0 },
-    BNB: { type: Number, default: 0 },
-    TRX: { type: Number, default: 0 },
-    USD: { type: Number, default: 0 },
+    type: Number,
+    default: 0,
   },
   withdrawalAddresses: {
     BTC: {
@@ -100,11 +97,6 @@ const userSchema = new mongoose.Schema({
         message: 'Invalid TRX address',
       },
     },
-  },
-
-  avatar: {
-    type: Number,
-    default: 1,
   },
 
   createdAt: {

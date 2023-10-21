@@ -1,6 +1,10 @@
 require('dotenv').config({ path: './config.env' });
 
 const mongoose = require('mongoose');
+const http = require('http');
+const socketIo = require('socket.io');
+const stockController = require('./controllers/stockPriceController');
+const positionController = require('./controllers/positionController');
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -33,14 +37,28 @@ connectToDatabase();
 
 // Import the app module
 const app = require('./app');
-// module.exports = app;
-// Start the server
-const server = app.listen(process.env.PORT, () => {
-  console.log(`App running on port ${process.env.PORT}`);
+
+// Create an HTTP server
+const server = http.createServer(app);
+
+// Setup socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: '*', // be more restrictive in production
+    methods: ['GET', 'POST'],
+  },
 });
 
-// cron job to calculate profits
-require('./cronJob');
+// After initializing Socket.io, call functions
+stockController.sendStockUpdates(io);
+
+positionController.sendOpenPositions(io);
+
+// Listen to the server on your specified port
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`App running on port ${PORT}`);
+});
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (error) => {

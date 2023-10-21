@@ -1,47 +1,57 @@
 const mongoose = require('mongoose');
-
 const transactionSchema = new mongoose.Schema({
-  userId: {
+  userID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: [true, 'A transaction must belong to a user.'],
   },
-  type: {
+  action: {
     type: String,
-    enum: [
-      'fund',
-      'deposit',
-      'withdrawal',
-      'referral',
-      'earning',
-      'penalty',
-      'bonus',
-    ],
-    required: true,
+    enum: ['buy', 'sell', 'deposit', 'withdraw', 'purchase'],
+    required: [true, 'A transaction must have an action.'],
   },
-  amount: {
+  ticker: {
+    type: String,
+    required: function () {
+      return ['buy', 'sell'].includes(this.action);
+    },
+  },
+  amountUSD: {
     type: Number,
-    required: true,
+    required: [true, 'A transaction must have an amount in USD.'],
   },
-  paymentMethod: {
+  shares: {
+    type: Number,
+    required: function () {
+      return ['buy', 'sell'].includes(this.action);
+    },
+  },
+  cryptoType: {
     type: String,
     enum: ['BTC', 'ETH', 'BNB', 'TRX', 'USD'],
-    required: true,
+    required: function () {
+      return ['deposit', 'withdraw'].includes(this.action);
+    },
   },
-  relatedBalance: {
+  cryptoAmount: {
     type: Number,
+    required: function () {
+      return ['deposit', 'withdraw'].includes(this.action);
+    },
   },
-  transactionReference: {
+  txHash: {
+    type: String,
+    required: function () {
+      return ['deposit'].includes(this.action);
+    },
+  },
+  memo: {
     type: String,
   },
   status: {
     type: String,
-    enum: ['pending', 'completed'],
-    required: true,
-  },
-  plan: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Plan',
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending',
   },
   createdAt: {
     type: Date,
@@ -49,18 +59,5 @@ const transactionSchema = new mongoose.Schema({
   },
 });
 
-// Add unique compound index
-transactionSchema.index(
-  {
-    userId: 1,
-    type: 1,
-    amount: 1,
-    paymentMethod: 1,
-    createdAt: 1,
-  },
-  { unique: true }
-);
-
 const Transaction = mongoose.model('Transaction', transactionSchema);
-
 module.exports = Transaction;

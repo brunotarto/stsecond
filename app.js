@@ -2,17 +2,17 @@ const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 
-const planRouter = require('./routes/planRoutes');
 const userRouter = require('./routes/userRoutes');
-const proofRouter = require('./routes/proofRoutes');
-const feeRouter = require('./routes/feeRoutes');
 const ipnRouter = require('./routes/ipnRoutes');
+const stockRouter = require('./routes/stockRoutes');
 const limiter = require('./utils/limiter');
 const cookieParser = require('cookie-parser');
 
 const globalErrorHandler = require('./controllers/errorController');
 const AppError = require('./utils/appError');
-// const findNegativeBalances = require('./correctBalance');
+
+const { connectToFinnhub } = require('./controllers/stockPriceController');
+const { updateMarketStatus } = require('./controllers/marketStatusController');
 
 const app = express();
 
@@ -38,17 +38,9 @@ app.use(cookieParser());
 
 // 2) Routes
 // Mount plan and user routers
-app.use('/api/v1/plans', limiter.general, planRouter);
 app.use('/api/v1/users', limiter.general, userRouter);
-app.use('/api/v1/fees', limiter.general, feeRouter);
-
-app.use('/api/v1/proofs', limiter.general, proofRouter);
 app.use('/api/v1/ipn', limiter.ipn, ipnRouter);
-
-// Call the function to correct balances
-// findNegativeBalances().catch((err) => {
-//   console.error('Error correcting balances: ', err);
-// });
+app.use('/api/v1/stocks', limiter.general, stockRouter);
 
 // Catch unhandled routes
 app.all('*', (req, res, next) => {
@@ -57,6 +49,15 @@ app.all('*', (req, res, next) => {
 
 // Use the global error handler
 app.use(globalErrorHandler);
+
+// update market status
+// Call it initially
+updateMarketStatus();
+// Then, call it every minute
+setInterval(updateMarketStatus, 60 * 1000);
+
+// Connect to Finnhub Websocket after all initializations
+connectToFinnhub();
 
 // 3) Export the app module
 module.exports = app;

@@ -1,9 +1,7 @@
 const User = require('../models/userModel');
-const Deposit = require('../models/depositModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const IpLogController = require('../controllers/ipLogController');
-const calculateEarnings = require('../utils/calculateEarnings');
 
 function filterUserData(userData) {
   const filteredUser = {
@@ -15,7 +13,6 @@ function filterUserData(userData) {
     accountBalance: userData.accountBalance,
     withdrawalAddresses: userData.withdrawalAddresses,
     referralCode: userData.referralCode,
-    avatar: userData.avatar,
     otp_enabled: userData.otp_enabled,
   };
 
@@ -34,7 +31,6 @@ const filterUserUpdateData = (body) => {
     'address',
     'zip',
     'withdrawalAddresses',
-    'avatar',
   ];
   let filteredBody = {};
 
@@ -121,33 +117,6 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     data: {
       user,
     },
-  });
-});
-
-// Create a new User
-exports.createUser = catchAsync(async (req, res, next) => {
-  const newUser = await User.create(req.body);
-  res.status(201).json({
-    status: 'success',
-    data: {
-      user: newUser,
-    },
-  });
-});
-
-// Delete a user by ID
-exports.deleteUser = catchAsync(async (req, res, next) => {
-  const user = await User.findByIdAndDelete(req.params.userId);
-
-  if (!user) {
-    return next(
-      new AppError('No user found with ID: ' + req.params.userId, 404)
-    );
-  }
-
-  res.status(204).json({
-    status: 'success',
-    data: null,
   });
 });
 
