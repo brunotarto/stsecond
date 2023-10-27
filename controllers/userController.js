@@ -14,6 +14,7 @@ function filterUserData(userData) {
     withdrawalAddresses: userData.withdrawalAddresses,
     referralCode: userData.referralCode,
     otp_enabled: userData.otp_enabled,
+    marginRatios: userData.marginRatios,
   };
 
   Object.keys(filteredUser).forEach((key) => {

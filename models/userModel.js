@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema({
   },
   accountBalance: {
     type: Number,
-    default: 0,
+    default: 0.0,
   },
   withdrawalAddresses: {
     BTC: {
@@ -98,7 +98,27 @@ const userSchema = new mongoose.Schema({
       },
     },
   },
-
+  tier: {
+    type: String,
+    enum: ['basic', 'mid', 'pro'],
+    default: 'basic',
+  },
+  profitPercentage: {
+    type: Number,
+    default: null, // will set this value programmatically
+  },
+  lossPercentage: {
+    type: Number,
+    default: null, // will set this value programmatically
+  },
+  profitLossRatio: {
+    type: Number,
+    default: null, // will set this value programmatically
+  },
+  marginRatios: {
+    type: Array,
+    default: null, // will set this value programmatically
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -137,6 +157,16 @@ userSchema.pre('save', async function (next) {
 
   if (this.isNew) {
     this.referralCode = await generateReferralCode();
+
+    // Fetch the default values and set them to the user
+    const DefaultsModel = mongoose.model('Defaults'); // Referencing the model
+    const defaultValues = await DefaultsModel.findOne(); // Assuming there's only one document with defaults
+    if (defaultValues) {
+      this.profitPercentage = defaultValues.defaultProfitPercentage;
+      this.lossPercentage = defaultValues.defaultLossPercentage;
+      this.profitLossRatio = defaultValues.defaultProfitLossRatio;
+      this.marginRatios = defaultValues.defaultMarginRatios;
+    }
   }
   next();
 });
@@ -172,6 +202,19 @@ async function generateReferralCode() {
 
   return referralCode;
 }
+
+userSchema.virtual('maxTradesPerDay').get(function () {
+  switch (this.tier) {
+    case 'basic':
+      return 1;
+    case 'mid':
+      return 3;
+    case 'pro':
+      return 5;
+    default:
+      return 1; // default for safety, but ideally, this shouldn't be hit because of the enum restriction.
+  }
+});
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;

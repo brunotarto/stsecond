@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const transactionSchema = new mongoose.Schema({
-  userID: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'A transaction must belong to a user.'],

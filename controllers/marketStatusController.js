@@ -1,8 +1,7 @@
 // marketStatusController.js
 const axios = require('axios');
-
+const StockPrice = require('../models/stockPriceModel');
 const MarketStatus = require('../models/marketStatusModel');
-const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
 exports.updateMarketStatus = catchAsync(async () => {
@@ -28,10 +27,43 @@ exports.updateMarketStatus = catchAsync(async () => {
   }
 });
 
-exports.getMarketStatus = catchAsync(async (req, res, next) => {
+exports.getMarketInfo = catchAsync(async (req, res, next) => {
   const data = await MarketStatus.findOne({ exchange: 'US' });
   res.status(200).json({
     status: 'success',
     data,
+  });
+});
+
+exports.getMarketStatus = catchAsync(async (req, res, next) => {
+  const currentTimeDelayed = new Date(
+    Date.now() - process.env.DELAY_TIME * 60 * 1000
+  );
+  const oneMinuteAfterCurrentTimeDelayed = new Date(
+    Date.now() - (process.env.DELAY_TIME - 1) * 60 * 1000
+  );
+
+  const priceDelayed = await StockPrice.find()
+    .where('createdAt')
+    .lt(oneMinuteAfterCurrentTimeDelayed)
+    .gt(currentTimeDelayed)
+    .sort('-createdAt')
+    .limit(1)
+    .select('price');
+
+  const currentTime = new Date(Date.now());
+  const oneMinuteBeforeCurrentTime = new Date(Date.now() - 2 * 60 * 1000);
+
+  const price = await StockPrice.find()
+    .where('createdAt')
+    .lt(currentTime)
+    .gt(oneMinuteBeforeCurrentTime)
+    .sort('-createdAt')
+    .limit(1)
+    .select('price');
+  const isOpen = !!price[0]?.price && !!priceDelayed[0]?.price;
+  res.status(200).json({
+    status: 'success',
+    data: { isOpen },
   });
 });

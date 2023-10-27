@@ -71,6 +71,9 @@ const positionSchema = new mongoose.Schema({
       message: 'Close price should be a positive value or zero',
     },
   },
+  profitOrLoss: {
+    type: Number,
+  },
   orderCloseAtDate: Date,
   orderCloseAtPrice: Number,
   open: {

@@ -1,5 +1,5 @@
 const Stock = require('../models/stockModel');
-const catchAsync = require('../utils/catchAsync'); // Assuming you're using this for error handling
+const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError'); // Error wrapper
 
 exports.getAllStocks = catchAsync(async (req, res, next) => {
@@ -10,21 +10,6 @@ exports.getAllStocks = catchAsync(async (req, res, next) => {
     results: stocks.length,
     data: {
       stocks,
-    },
-  });
-});
-
-exports.getStock = catchAsync(async (req, res, next) => {
-  const stock = await Stock.findById(req.params.id);
-
-  if (!stock) {
-    return next(new AppError('No stock found with that ID', 404));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      stock,
     },
   });
 });
