@@ -6,6 +6,29 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const GatewayHandler = require('../utils/gatewayHandler');
 
+const getTotalDepositedLast12Hours = async (userId) => {
+  const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+  const deposits = await Transaction.aggregate([
+    {
+      $match: {
+        userId: mongoose.Types.ObjectId(userId),
+        action: 'deposit',
+        createdAt: { $gte: twelveHoursAgo },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalAmountUSD: { $sum: '$amountUSD' },
+      },
+    },
+  ]);
+
+  // Check if there were any deposits and return the total amount
+  return deposits.length > 0 ? deposits[0].totalAmountUSD : 0;
+};
+
 async function getCryptoPrice(symbol) {
   const symbolPrice = await cryptoPriceModel.findOne({ symbol });
   if (!symbolPrice) {
@@ -66,6 +89,27 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
       return next(new AppError('Insufficient balance', 400));
     }
 
+    const last12HoursTotalDeposit = await getTotalDepositedLast12Hours(userId);
+
+    if (amountUSD > user.accountBalance - last12HoursTotalDeposit) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(
+        new AppError(
+          `Your recent deposit is locked for 12 hours. Available withdrawal amount is ${
+            user.accountBalance - last12HoursTotalDeposit
+          }`,
+          400
+        )
+      );
+    }
+
+    if (amountUSD <= 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(new AppError('Minimum withdraw amount is 25', 400));
+    }
+
     if (!user.withdrawalAddresses[paymentMethod]) {
       await session.abortTransaction();
       session.endSession();
@@ -81,12 +125,17 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
     }
 
     // Deduct the user's balance by the withdrawal amount
-    user.accountBalance -= amountUSD;
-    await user.save({ validateBeforeSave: false, session });
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        $inc: { [`accountBalance`]: -amountUSD },
+      },
+      { validateBeforeSave: false, new: true, session }
+    );
 
     // Record the withdrawal transaction (status could be 'pending' initially)
     const newTransaction = new Transaction({
-      userID: userId,
+      userId,
       action: 'withdraw',
       amountUSD,
       cryptoType: paymentMethod,
@@ -131,7 +180,7 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
     // Rollback the transaction on error
     await session.abortTransaction();
     session.endSession();
-
+    console.log(error);
     return next(new AppError('Error initiating withdrawal', 400));
   }
 });

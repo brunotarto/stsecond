@@ -1,7 +1,7 @@
 const StockPrice = require('../models/stockPriceModel');
 const AppError = require('../utils/appError'); // Error wrapper
 
-const getTickerPrice = async (ticker) => {
+const getTickerPrice = async (ticker, direction = null) => {
   const currentTime = new Date(Date.now() - process.env.DELAY_TIME * 60 * 1000);
   const price = await StockPrice.find({ ticker })
     .where('createdAt')
@@ -9,10 +9,15 @@ const getTickerPrice = async (ticker) => {
     .sort('-createdAt')
     .limit(1)
     .select('price');
+  if (direction) {
+    return direction === 'long'
+      ? price[0]?.price + price[0]?.price * +process.env.GROSS_MARGIN
+      : price[0]?.price - price[0]?.price * +process.env.GROSS_MARGIN;
+  }
   return price[0]?.price;
 };
 
-const getMarketStatus = async (ticker) => {
+const getMarketStatus = async () => {
   const currentTimeDelayed = new Date(
     Date.now() - process.env.DELAY_TIME * 60 * 1000
   );
@@ -20,7 +25,7 @@ const getMarketStatus = async (ticker) => {
     Date.now() - (process.env.DELAY_TIME - 1) * 60 * 1000
   );
 
-  const priceDelayed = await StockPrice.find({ ticker })
+  const priceDelayed = await StockPrice.find()
     .where('createdAt')
     .lt(oneMinuteAfterCurrentTimeDelayed)
     .gt(currentTimeDelayed)
@@ -31,13 +36,14 @@ const getMarketStatus = async (ticker) => {
   const currentTime = new Date(Date.now());
   const oneMinuteBeforeCurrentTime = new Date(Date.now() - 2 * 60 * 1000);
 
-  const price = await StockPrice.find({ ticker })
+  const price = await StockPrice.find()
     .where('createdAt')
     .lt(currentTime)
     .gt(oneMinuteBeforeCurrentTime)
     .sort('-createdAt')
     .limit(1)
     .select('price');
+  // return false;
   return !!price[0]?.price && !!priceDelayed[0]?.price;
 };
 
@@ -64,7 +70,7 @@ const getTickerFuturePriceLength = async (ticker) => {
 };
 
 const getMarginRatioAndDirection = async (ticker, marginRatios, percentage) => {
-  const marketStatus = await getMarketStatus('AAPL');
+  const marketStatus = await getMarketStatus();
   if (!marketStatus) {
     return new AppError(
       'Open new position with AI is not possible while market is close',
@@ -140,4 +146,5 @@ module.exports = {
   getTickerPrice,
   getMarginRatioAndDirection,
   getTickerFuturePriceLength,
+  getMarketStatus,
 };

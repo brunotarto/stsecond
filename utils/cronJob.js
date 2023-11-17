@@ -1,7 +1,11 @@
 const cron = require('node-cron');
 const Position = require('../models/positionModel');
-const { getTickerPrice } = require('../utils/stockUtils');
+const Order = require('../models/orderModel');
+
+const { getTickerPrice, getMarketStatus } = require('../utils/stockUtils');
+
 const { cronClosePosition } = require('../controllers/positionController');
+const { cronCreatePosition } = require('../controllers/positionController');
 
 module.exports = {
   initializeCronJobs: function () {
@@ -10,15 +14,17 @@ module.exports = {
     // You can adjust the cron syntax based on your requirement (e.g., every hour, day, etc.)
     cron.schedule('0 * * * * *', async () => {
       try {
-        // Fetch all open positions where orderCloseAtDate is less than or equal to the current time
-        const positionsToClose = await Position.find({
-          open: true,
-          orderCloseAtDate: { $gte: new Date() },
-        });
-
-        // Loop through each position and close it
-        for (let position of positionsToClose) {
-          await cronClosePosition(position._id); // Assuming closePosition accepts the position ID to close it
+        const marketStatus = await getMarketStatus();
+        if (marketStatus) {
+          // Fetch all open positions where orderCloseAtDate is less than or equal to the current time
+          const positionsToClose = await Position.find({
+            open: true,
+            orderCloseAtDate: { $lte: new Date() },
+          });
+          // Loop through each position and close it
+          for (let position of positionsToClose) {
+            await cronClosePosition(position._id); // Assuming closePosition accepts the position ID to close it
+          }
         }
       } catch (error) {
         console.error('Error while running the cron job:', error);
@@ -26,7 +32,7 @@ module.exports = {
     });
 
     // Schedule a task to run every minute to trigger closing positions based on orderCloseAtPrice
-    cron.schedule('20 * * * * *', async () => {
+    cron.schedule('15 * * * * *', async () => {
       try {
         // Fetch current price for each ticker
         // This is a simplified approach; in a real-world scenario, you might want to optimize this to reduce the number of calls to getTickerPrice
@@ -71,7 +77,7 @@ module.exports = {
     });
 
     // Schedule a task to run every minute to trigger liquidation for short positions
-    cron.schedule('40 * * * * *', async () => {
+    cron.schedule('30 * * * * *', async () => {
       try {
         // Fetch current price for each ticker
         const distinctTickers = await Position.distinct('ticker');
@@ -114,6 +120,27 @@ module.exports = {
         }
       } catch (error) {
         console.error('Error while running the liquidation cron job:', error);
+      }
+    });
+
+    // Schedule a task to run every minute to create positions if the market is open
+    cron.schedule('45 * * * * *', async () => {
+      try {
+        const marketStatus = await getMarketStatus();
+        // Check if the market is open
+        if (marketStatus) {
+          // Fetch all unfilled orders
+          const unfilledOrders = await Order.find({ orderStatus: 'unfilled' });
+          // Loop through each unfilled order and create a position for it
+          for (let order of unfilledOrders) {
+            await cronCreatePosition(order);
+          }
+        }
+      } catch (error) {
+        console.error(
+          'Error while running the createPosition cron job:',
+          error
+        );
       }
     });
   },

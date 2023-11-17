@@ -11,17 +11,14 @@ module.exports = function () {
   updateMarketStatus();
   // Then, call it every minute
   setInterval(updateMarketStatus, 1 * 60 * 1000);
-
   // update crypto Prices
   // Call it initially
   updateCryptoPrices();
-  // Then, call it 2 minutes
-  setInterval(updateMarketStatus, 5 * 60 * 1000);
-
+  // Then, call it 5 minutes
+  setInterval(updateCryptoPrices, 5 * 60 * 1000);
   // This will run the cleanup task
   setInterval(cleanupOldPrices, 24 * 60 * 60 * 1000);
   setInterval(connectToFinnhub, 5 * 60 * 1000);
-
   // Connect to Finnhub Websocket after all initializations
   connectToFinnhub();
 };

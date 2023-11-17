@@ -6,6 +6,7 @@ const userRouter = require('./routes/userRoutes');
 const ipnRouter = require('./routes/ipnRoutes');
 const stockRouter = require('./routes/stockRoutes');
 const positionRouter = require('./routes/positionRoutes');
+const orderRouter = require('./routes/orderRoutes');
 const adminRouter = require('./routes/adminRoutes');
 
 const limiter = require('./utils/limiter');
@@ -25,7 +26,12 @@ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 // Parse incoming JSON data
 app.use(express.json());
 
-app.use(cors());
+const corsOptions = {
+  origin: 'http://localhost:4200', // or the specific origin you want to allow
+  credentials: true, // to allow cookies and headers to be sent along with the request
+};
+
+app.use(cors(corsOptions));
 
 // Serve static files from the public folder
 app.use(express.static(`${__dirname}/public`));
@@ -44,6 +50,7 @@ app.use('/api/v1/users', limiter.general, userRouter);
 app.use('/api/v1/ipn', limiter.ipn, ipnRouter);
 app.use('/api/v1/stocks', limiter.general, stockRouter);
 app.use('/api/v1/positions', limiter.general, positionRouter);
+app.use('/api/v1/orders', limiter.general, orderRouter);
 app.use('/api/v1/admin', limiter.general, adminRouter);
 
 // Update and Intervals

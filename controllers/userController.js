@@ -2,6 +2,7 @@ const User = require('../models/userModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const IpLogController = require('../controllers/ipLogController');
+const speakeasy = require('speakeasy');
 
 function filterUserData(userData) {
   const filteredUser = {
@@ -161,6 +162,26 @@ exports.updateUserDetails = catchAsync(async (req, res, next) => {
 
   if (!user) {
     return next(new AppError('No user found with that ID.', 404));
+  }
+
+  if (user.otp_enabled) {
+    // Verify the OTP
+    if (!req.body.otp) {
+      return next(new AppError('OTP', 202));
+    }
+    if (!req.body.otp || typeof req.body.otp !== 'string') {
+      return next(new AppError('Invalid OTP', 401));
+    }
+    const otp = req.body.otp;
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFASecret,
+      encoding: 'base32',
+      token: otp,
+    });
+
+    if (!verified) {
+      return next(new AppError('Invalid OTP', 401));
+    }
   }
 
   // Check if user has 'updateProfile' in their restrictedActions

@@ -5,11 +5,6 @@ const bcrypt = require('bcryptjs');
 const validate = require('multicoin-address-validator').validate;
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Please provide your name'],
-    maxLength: [50, 'Name cannot be longer than 50 characters'],
-  },
   email: {
     type: String,
     required: [true, 'Please provide your email'],
@@ -28,18 +23,6 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Please provide a password'],
     minLength: 8,
     select: false,
-  },
-  country: {
-    type: String,
-    maxLength: [50, 'Name cannot be longer than 50 characters'],
-  },
-  address: {
-    type: String,
-    maxLength: [150, 'Name cannot be longer than 150 characters'],
-  },
-  zip: {
-    type: String,
-    maxLength: [10, 'Name cannot be longer than 10 characters'],
   },
   passwordConfirm: {
     type: String,
@@ -98,11 +81,6 @@ const userSchema = new mongoose.Schema({
       },
     },
   },
-  tier: {
-    type: String,
-    enum: ['basic', 'mid', 'pro'],
-    default: 'basic',
-  },
   profitPercentage: {
     type: Number,
     default: null, // will set this value programmatically
@@ -143,6 +121,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
   restrictedActions: {
     type: Array,
     default: [],
@@ -157,16 +139,6 @@ userSchema.pre('save', async function (next) {
 
   if (this.isNew) {
     this.referralCode = await generateReferralCode();
-
-    // Fetch the default values and set them to the user
-    const DefaultsModel = mongoose.model('Defaults'); // Referencing the model
-    const defaultValues = await DefaultsModel.findOne(); // Assuming there's only one document with defaults
-    if (defaultValues) {
-      this.profitPercentage = defaultValues.defaultProfitPercentage;
-      this.lossPercentage = defaultValues.defaultLossPercentage;
-      this.profitLossRatio = defaultValues.defaultProfitLossRatio;
-      this.marginRatios = defaultValues.defaultMarginRatios;
-    }
   }
   next();
 });
@@ -202,19 +174,6 @@ async function generateReferralCode() {
 
   return referralCode;
 }
-
-userSchema.virtual('maxTradesPerDay').get(function () {
-  switch (this.tier) {
-    case 'basic':
-      return 1;
-    case 'mid':
-      return 3;
-    case 'pro':
-      return 5;
-    default:
-      return 1; // default for safety, but ideally, this shouldn't be hit because of the enum restriction.
-  }
-});
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;

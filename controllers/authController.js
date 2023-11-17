@@ -351,6 +351,21 @@ exports.verify2FA = catchAsync(async (req, res, next) => {
 exports.disable2FA = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user._id);
 
+  if (!user.otp_enabled) {
+    return next(new AppError('User already disabled 2FA', 401));
+  }
+
+  const otp = req.body.otp;
+  const verified = speakeasy.totp.verify({
+    secret: user.twoFASecret,
+    encoding: 'base32',
+    token: otp,
+  });
+
+  if (!verified) {
+    return next(new AppError('Invalid OTP', 401));
+  }
+
   user.otp_enabled = false;
   user.twoFASecret = undefined;
   await user.save({ validateBeforeSave: false });

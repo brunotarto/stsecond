@@ -11,10 +11,11 @@ exports.generateAddress = catchAsync(async (req, res, next) => {
     network: req.params.network,
     statusURL: process.env.IPN_HANDLER,
     label: req.user._id,
-    waitPeriod: 1 * 30 * 24 * 60, // 1 month to minutes
+    waitPeriod: 6 * 30 * 24 * 60, // 1 month to minutes
   };
 
   const generatedAddress = await GatewayHandler('give', params);
+  console.log(generatedAddress);
   const address = generatedAddress.result.address;
   if (!address) new AppError('Please try again latter', 403);
   generatedAddress.result.address;

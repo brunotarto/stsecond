@@ -6,6 +6,8 @@ const depositController = require('./../controllers/depositController');
 const addressController = require('./../controllers/addressController');
 const withdrawController = require('./../controllers/withdrawController');
 const ipLogController = require('./../controllers/ipLogController');
+const documentController = require('./../controllers/documentController');
+const subscriptionController = require('../controllers/subscriptionController');
 
 const limiter = require('../utils/limiter');
 
@@ -26,6 +28,10 @@ router.get('/account', authController.protect, userController.getAccount);
 router.patch('/account', authController.protect, userController.updateUserDetails);
 router.patch('/account/update-password', authController.protect, userController.updatePassword);
 
+// Get subscription status
+router.get('/subscription-status', authController.protect, subscriptionController.getUserSubscriptionStatus);
+router.post('/subscription', authController.protect, subscriptionController.getNewSubscription);
+
 // Transactions routes
 router.get('/transactions', authController.protect, transController.getAllTransactions);
 router.get('/transactions/:transId', authController.protect, transController.getTransaction);
@@ -38,6 +44,17 @@ router.post('/deposits', authController.protect, authController.restrictTo('Admi
 
 // request withdrawal
 router.post('/withdraw', authController.protect, withdrawController.createWithdrawal);
+
+router.post(
+  '/document/upload',
+  authController.protect,
+  documentController.uploadUserDocument, // This middleware handles the file upload in memory
+  documentController.verifyDocument, // This middleware handles document verification with Mindee
+  documentController.createDocument // This middleware handles saving the document metadata to MongoDB
+);
+router.get('/document/status', authController.protect, documentController.getVerificationStatus);
+
+router.get('/document/:id', authController.protect, authController.restrictTo('Admin'), documentController.getDocument);
 
 // Users management - admin only
 router.get('/', authController.protect, authController.restrictTo('Admin'), userController.getAllUsers);

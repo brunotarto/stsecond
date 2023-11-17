@@ -8,6 +8,7 @@ router.patch('/:id/close', authController.protect, positionController.closePosit
 router.get('/limit', authController.protect, positionController.getAiPositionLimit);
 router.get('/total-profit-or-loss', authController.protect, positionController.sumProfitOrLoss);
 router.get('/total-open-equity', authController.protect, positionController.sumOpenEquity);
+router.get('/:id', authController.protect, positionController.getPosition);
 router.get('/', authController.protect, positionController.getAllPositions);
 router.post('/', authController.protect, positionController.createPosition);
 

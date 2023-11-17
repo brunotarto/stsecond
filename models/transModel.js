@@ -7,7 +7,15 @@ const transactionSchema = new mongoose.Schema({
   },
   action: {
     type: String,
-    enum: ['buy', 'sell', 'deposit', 'withdraw', 'purchase'],
+    enum: [
+      'buy',
+      'sell',
+      'deposit',
+      'withdraw',
+      'purchase',
+      'order',
+      'order-cancel',
+    ],
     required: [true, 'A transaction must have an action.'],
   },
   ticker: {
@@ -51,7 +59,7 @@ const transactionSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['pending', 'completed', 'failed'],
-    default: 'pending',
+    default: 'completed',
   },
   createdAt: {
     type: Date,

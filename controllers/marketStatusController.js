@@ -35,6 +35,15 @@ exports.getMarketInfo = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getGrossMargin = catchAsync(async (req, res, next) => {
+  res.status(200).json({
+    status: 'success',
+    data: {
+      grossMargin: +process.env.GROSS_MARGIN,
+    },
+  });
+});
+
 exports.getMarketStatus = catchAsync(async (req, res, next) => {
   const currentTimeDelayed = new Date(
     Date.now() - process.env.DELAY_TIME * 60 * 1000
