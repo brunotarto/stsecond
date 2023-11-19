@@ -12,6 +12,7 @@ const transactionSchema = new mongoose.Schema({
       'sell',
       'deposit',
       'withdraw',
+      'referral',
       'purchase',
       'order',
       'order-cancel',

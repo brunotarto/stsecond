@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
 const validate = require('multicoin-address-validator').validate;
+const Default = require('./defaultModel'); // Ensure correct path
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -125,6 +126,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isDemo: {
+    type: Boolean,
+    default: false,
+  },
+  demoId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
   restrictedActions: {
     type: Array,
     default: [],
@@ -136,9 +145,21 @@ userSchema.pre('save', async function (next) {
 
   this.password = await bcrypt.hash(this.password, 12);
   this.passwordConfirm = undefined;
+  const code = await generateReferralCode();
+  this.referralCode = this.isDemo ? 'demo_' + code : code;
+  if (this.isNew && !this.isDemo) {
+    // Create a demo account linked to this real account
+    const demoUser = new User({
+      email: `demo_${this.email}`, // Modify email to avoid duplication
+      password: this.password, // Use the same password
+      passwordConfirm: this.password, // Use the same password
+      isDemo: true,
+      accountBalance: 100000, // Set initial balance for demo account
+      // Copy other relevant fields if needed
+    });
 
-  if (this.isNew) {
-    this.referralCode = await generateReferralCode();
+    await demoUser.save();
+    this.demoId = demoUser._id; // Link demo account ID to real account
   }
   next();
 });
@@ -174,6 +195,25 @@ async function generateReferralCode() {
 
   return referralCode;
 }
+
+userSchema.methods.applyDefaultValues = async function () {
+  const defaults = await Default.findOne();
+  if (!defaults) return; // No defaults found
+
+  // Check and set default values if necessary
+  if (this.profitPercentage === null) {
+    this.profitPercentage = defaults.defaultProfitPercentage;
+  }
+  if (this.lossPercentage === null) {
+    this.lossPercentage = defaults.defaultLossPercentage;
+  }
+  if (this.profitLossRatio === null) {
+    this.profitLossRatio = defaults.defaultProfitLossRatio;
+  }
+  if (!this.marginRatios || this.marginRatios.length === 0) {
+    this.marginRatios = defaults.defaultMarginRatios;
+  }
+};
 
 const User = mongoose.model('User', userSchema);
 module.exports = User;

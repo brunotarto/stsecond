@@ -8,6 +8,7 @@ const withdrawController = require('./../controllers/withdrawController');
 const ipLogController = require('./../controllers/ipLogController');
 const documentController = require('./../controllers/documentController');
 const subscriptionController = require('../controllers/subscriptionController');
+const referralController = require('../controllers/referralController');
 
 const limiter = require('../utils/limiter');
 
@@ -26,28 +27,31 @@ router.post('/otp/disable', authController.protect, authController.disable2FA);
 // Get Account info and update account
 router.get('/account', authController.protect, userController.getAccount);
 router.patch('/account', authController.protect, userController.updateUserDetails);
-router.patch('/account/update-password', authController.protect, userController.updatePassword);
+router.patch('/account/update-password', authController.protect, authController.restrictToReal, userController.updatePassword);
 
 // Get subscription status
 router.get('/subscription-status', authController.protect, subscriptionController.getUserSubscriptionStatus);
 router.post('/subscription', authController.protect, subscriptionController.getNewSubscription);
+
+router.get('/referrals', authController.protect, referralController.getReferrals);
 
 // Transactions routes
 router.get('/transactions', authController.protect, transController.getAllTransactions);
 router.get('/transactions/:transId', authController.protect, transController.getTransaction);
 
 // Get an address for fund account balance
-router.get('/addresses/:network', authController.protect, addressController.generateAddress);
+router.get('/addresses/:network', authController.protect, authController.restrictToReal, addressController.generateAddress);
 
 // Deposits routes
 router.post('/deposits', authController.protect, authController.restrictTo('Admin'), depositController.createDeposit);
 
 // request withdrawal
-router.post('/withdraw', authController.protect, withdrawController.createWithdrawal);
+router.post('/withdraw', authController.protect, authController.restrictToReal, withdrawController.createWithdrawal);
 
 router.post(
   '/document/upload',
   authController.protect,
+  authController.restrictToReal,
   documentController.uploadUserDocument, // This middleware handles the file upload in memory
   documentController.verifyDocument, // This middleware handles document verification with Mindee
   documentController.createDocument // This middleware handles saving the document metadata to MongoDB

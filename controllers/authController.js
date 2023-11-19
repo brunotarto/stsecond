@@ -8,14 +8,14 @@ const { promisify } = require('util');
 
 const speakeasy = require('speakeasy');
 
-const signToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+const signToken = (userId, demoId) => {
+  return jwt.sign({ id: userId, demoId: demoId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
+  const token = signToken(user._id, user.demoId);
   const filteredUser = {
     name: user.name,
     email: user.email,
@@ -34,36 +34,37 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = catchAsync(async (req, res, next) => {
-  // Check for a referral code in the request
-  const referralCode = req.body.referralCode;
+  try {
+    // Check for a referral code in the request
+    const referralCode = req.body.referralCode;
 
-  // Initialize the referrer variable
-  let referrer;
+    // Initialize the referrer variable
+    let referrer;
 
-  if (referralCode) {
-    // Find the referrer user with the provided referral code
-    referrer = await User.findOne({ referralCode });
-    if (referralCode && !referrer) {
-      referrer = undefined;
+    if (referralCode) {
+      // Find the referrer user with the provided referral code
+      referrer = await User.findOne({ referralCode });
     }
+
+    // Create the new user with the referrer's ID if it exists
+    const newUser = await User.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: req.body.password,
+      passwordConfirm: req.body.passwordConfirm,
+      referrer: referrer ? referrer._id : undefined,
+    });
+
+    await sendTemplatedEmail(
+      'welcome',
+      'Welcome to ' + process.env.FUNCTION,
+      req.body
+    );
+
+    createSendToken(newUser, 201, res);
+  } catch (error) {
+    console.log(error);
   }
-
-  // Create the new user with the referrer's ID if it exists
-  const newUser = await User.create({
-    name: req.body.name,
-    email: req.body.email,
-    password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm,
-    referrer: referrer ? referrer._id : undefined,
-  });
-
-  await sendTemplatedEmail(
-    'welcome',
-    'Welcome to ' + process.env.FUNCTION,
-    req.body
-  );
-
-  createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -77,7 +78,7 @@ exports.login = catchAsync(async (req, res, next) => {
   }
 
   // Retrieve the user with the given email and select the password field
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email, isDemo: false }).select('+password');
 
   // Check if the password is correct
   const correctPassword = user
@@ -118,7 +119,8 @@ exports.login = catchAsync(async (req, res, next) => {
   createSendToken(user, 200, res);
 });
 
-exports.validateWebSocketToken = async (token) => {
+exports.validateWebSocketToken = async (token, accountType) => {
+  // accountType added as a parameter
   try {
     if (!token) {
       throw new AppError('No token provided.', 401);
@@ -127,8 +129,11 @@ exports.validateWebSocketToken = async (token) => {
     // Verify the token and extract the payload
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
+    // Determine the account type (real or demo)
+    const accountId = accountType === 'demo' ? decoded.demoId : decoded.id;
+
     // Check if the user still exists
-    const currentUser = await User.findById(decoded.id);
+    const currentUser = await User.findById(accountId);
     if (!currentUser) {
       throw new AppError(
         'The user belonging to this token no longer exists.',
@@ -173,8 +178,12 @@ exports.protect = async (req, res, next) => {
     // Verify the token and extract the payload
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
+    // Determine the account type (real or demo)
+    const accountType = req.headers['x-account-type']; // Custom header
+    const accountId = accountType === 'demo' ? decoded.demoId : decoded.id;
+
     // Check if the user still exists
-    const currentUser = await User.findById(decoded.id);
+    const currentUser = await User.findById(accountId);
     if (!currentUser) {
       return res.status(401).json({
         status: 'fail',
@@ -216,7 +225,7 @@ exports.restrictTo = (...roles) => {
 };
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ email: req.body.email });
+  const user = await User.findOne({ email: req.body.email, isDemo: false });
 
   if (!user) {
     return next(new AppError('There is no user with email address', 404));
@@ -377,3 +386,14 @@ exports.disable2FA = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.restrictToReal = (req, res, next) => {
+  // roles is an array of allowed roles, e.g. ['admin', 'user']
+
+  if (req.user.isDemo) {
+    return next(
+      new AppError('This action is not available for demo accounts.', 403)
+    );
+  }
+  next();
+};

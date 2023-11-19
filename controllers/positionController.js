@@ -55,14 +55,14 @@ const fetchUserSubscriptionStatus = async (userId) => {
     const currentDate = new Date(); // Current date to compare with
 
     if (
-      latestPurchase.amountUSD === 5000 &&
+      latestPurchase.amountUSD === +process.env.ANNUALLY_SUBSCRIPTION_FEE &&
       currentDate < oneYearFromPurchase
     ) {
       isSubscribed = true;
       plan = 'annually';
       expirationDate = oneYearFromPurchase;
     } else if (
-      latestPurchase.amountUSD === 500 &&
+      latestPurchase.amountUSD === +process.env.MONTHLY_SUBSCRIPTION_FEE &&
       currentDate < oneMonthFromPurchase
     ) {
       isSubscribed = true;
@@ -157,7 +157,12 @@ exports.sendOpenPositions = (io) => {
 
   io.on('connection', async (socket) => {
     const token = socket.handshake.query.token;
-    const user = await authController.validateWebSocketToken(token);
+    const accountType = socket.handshake.query.accountType; // Extract accountType from handshake query
+
+    const user = await authController.validateWebSocketToken(
+      token,
+      accountType
+    );
 
     if (!user) {
       socket.emit('error', 'Authentication failed.');
@@ -221,12 +226,16 @@ exports.createPosition = catchAsync(async (req, res, next) => {
 
     // Fetch the user's balance
     let user = await User.findById(userId).session(session);
-
+    await user.applyDefaultValues();
     // Calculate the stock price and total shares
     let price = await getTickerPrice(ticker, direction);
 
     if (!user) {
       return next(new AppError('User not found', 404));
+    }
+
+    if (!user.marginRatios.includes(marginRatio)) {
+      return next(new AppError('Invalid margin ratio', 400));
     }
 
     if (!amount || amount < 10) {

@@ -8,11 +8,10 @@ const GatewayHandler = require('../utils/gatewayHandler');
 
 const getTotalDepositedLast12Hours = async (userId) => {
   const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-
   const deposits = await Transaction.aggregate([
     {
       $match: {
-        userId: mongoose.Types.ObjectId(userId),
+        userId,
         action: 'deposit',
         createdAt: { $gte: twelveHoursAgo },
       },

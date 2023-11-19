@@ -15,7 +15,6 @@ exports.generateAddress = catchAsync(async (req, res, next) => {
   };
 
   const generatedAddress = await GatewayHandler('give', params);
-  console.log(generatedAddress);
   const address = generatedAddress.result.address;
   if (!address) new AppError('Please try again latter', 403);
   generatedAddress.result.address;

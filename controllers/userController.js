@@ -85,18 +85,17 @@ exports.getUser = catchAsync(async (req, res, next) => {
   const userId = req.params.userId;
 
   const user = await User.findById(userId).populate('referrer');
+  await user.applyDefaultValues();
   if (!user) {
     return next(
       new AppError('No user found with ID: ' + req.params.userId, 404)
     );
   }
-  const deposits = await Deposit.find({ userId }).populate('planId');
 
   res.status(200).json({
     status: 'success',
     data: {
       user,
-      deposits,
     },
   });
 });
@@ -133,7 +132,7 @@ exports.getAccount = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new AppError('No user found with that ID.', 404));
   }
-
+  await user.applyDefaultValues();
   const filteredUser = filterUserData(user);
 
   // await calculateEarnings(req.user._id);

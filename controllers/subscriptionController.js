@@ -75,9 +75,27 @@ exports.getNewSubscription = catchAsync(async (req, res, next) => {
       {
         $inc: { [`accountBalance`]: -amountUSD },
       },
-      { validateBeforeSave: false, new: true, session }
+      { validateBeforeSave: false, session }
     );
 
+    if (user.referrer) {
+      referrerId = user.referrer;
+      referralAmount = amountUSD * 0.1;
+      const referralTransaction = new Transaction({
+        userId: referrerId,
+        action: 'referral',
+        amountUSD: referralAmount,
+        memo: user.email,
+      });
+      await referralTransaction.save({ session });
+      await User.findByIdAndUpdate(
+        referrerId,
+        {
+          $inc: { [`accountBalance`]: referralAmount },
+        },
+        { validateBeforeSave: false, session }
+      );
+    }
     // Commit the transaction
     await session.commitTransaction();
     session.endSession();
