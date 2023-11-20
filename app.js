@@ -27,7 +27,11 @@ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 app.use(express.json());
 
 const corsOptions = {
-  origin: ['https://xomble.com', 'https://www.xomble.com'], // or the specific origin you want to allow
+  origin: [
+    'http://localhost:4200',
+    'https://xomble.com',
+    'https://www.xomble.com',
+  ], // or the specific origin you want to allow
   credentials: true, // to allow cookies and headers to be sent along with the request
 };
 
