@@ -30,7 +30,7 @@ exports.updateStockAndPricesCache = async () => {
       createdAt: { $gte: fromTime },
     }).sort({ createdAt: 1 });
 
-    let aiProgress = prices.length > 100 ? 100 : prices.length;
+    let aiProgress = prices.length; //> 100 ? 100 : prices.length;
 
     const currentTime = new Date(
       Date.now() - process.env.DELAY_TIME * 60 * 1000
