@@ -2,6 +2,7 @@ const {
   connectToFinnhub,
   cleanupOldPrices,
   startBatchInsertInterval,
+  updateStockAndPricesCache,
 } = require('../controllers/stockPriceController');
 const { updateMarketStatus } = require('../controllers/marketStatusController');
 const { updateCryptoPrices } = require('../controllers/cryptoPriceController');
@@ -20,7 +21,11 @@ module.exports = function () {
   // This will run the cleanup task
   setInterval(cleanupOldPrices, 24 * 60 * 60 * 1000);
   setInterval(startBatchInsertInterval, 15 * 1000);
+  setInterval(updateStockAndPricesCache, 30 * 1000);
   setInterval(connectToFinnhub, 5 * 60 * 1000);
+
+  updateStockAndPricesCache();
+
   // Connect to Finnhub Websocket after all initializations
   connectToFinnhub();
 };

@@ -2,7 +2,6 @@ const WebSocket = require('ws');
 const Stock = require('../models/stockModel');
 const StockPrice = require('../models/stockPriceModel');
 const moment = require('moment');
-const { getTickerFuturePriceLength } = require('../utils/stockUtils');
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
 // Create a simple in-memory cache to track the last update timestamp for each ticker
@@ -15,6 +14,42 @@ let pingInterval;
 let checkPongInterval;
 let lastPongTimestamp = null;
 let stockPriceBatch = [];
+let stockAndPrices = {};
+
+exports.updateStockAndPricesCache = async () => {
+  const stocks = await Stock.find();
+  for (const stock of stocks) {
+    const fromTime = moment()
+      .subtract(process.env.DELAY_TIME + 1, 'minutes')
+      .toDate();
+    const fromTime15 = moment()
+      .subtract(process.env.DELAY_TIME, 'minutes')
+      .toDate();
+    const prices = await StockPrice.find({
+      ticker: stock.ticker,
+      createdAt: { $gte: fromTime },
+    }).sort({ createdAt: 1 });
+
+    let aiProgress = prices.length > 100 ? 100 : prices.length;
+    let lastPrice = prices.length > 0 ? prices[0].price : null;
+
+    if (aiProgress === 0) {
+      const lastPriceBeforeDelay = await StockPrice.findOne({
+        ticker: stock.ticker,
+        createdAt: { $lt: fromTime15 },
+      }).sort({ createdAt: -1 });
+      lastPrice = lastPriceBeforeDelay ? lastPriceBeforeDelay.price : null;
+    }
+
+    stockAndPrices[stock.ticker] = {
+      companyName: stock.companyName,
+      prices: prices.map((p) => ({ price: p.price, createdAt: p.createdAt })),
+      lastPrice,
+      aiProgress,
+    };
+  }
+};
+
 const connectToFinnhub = async () => {
   if (ws) {
     ws.removeAllListeners();
@@ -119,37 +154,34 @@ exports.connectToFinnhub = connectToFinnhub;
 
 exports.sendStockUpdates = (io) => {
   console.log('Websocket Established');
-  setInterval(async () => {
-    // Fetch all stocks
-    const stocks = await Stock.find();
-
-    // Fetch delayed stock prices for each stock
+  setInterval(() => {
     const stocksWithPrices = [];
-    for (let stock of stocks) {
-      const fifteenMinutesAgo = moment()
+
+    for (let ticker in stockAndPrices) {
+      const stockData = stockAndPrices[ticker];
+      const fromTime = moment()
         .subtract(process.env.DELAY_TIME, 'minutes')
         .toDate();
+      const toTime = moment(fromTime).add(1, 'seconds').toDate();
 
-      const priceEntry = await StockPrice.findOne({
-        ticker: stock.ticker,
-        createdAt: { $lte: fifteenMinutesAgo },
-      })
-        .sort({ createdAt: -1 })
-        .limit(1);
-      if (priceEntry) {
-        let aiProgress = await getTickerFuturePriceLength(stock.ticker);
-        aiProgress = aiProgress < 100 ? aiProgress : 100;
-        stocksWithPrices.push({
-          aiProgress,
-          ticker: stock.ticker,
-          companyName: stock.companyName,
-          price: priceEntry.price,
-        });
+      // Find the price entry within the specific time frame
+      const relevantPriceEntry = stockData.prices.find(
+        (p) => p.createdAt >= fromTime && p.createdAt <= toTime
+      );
+
+      if (!relevantPriceEntry) {
       }
+      stocksWithPrices.push({
+        aiProgress: stockData.aiProgress,
+        ticker: ticker,
+        companyName: stockData.companyName,
+        price: relevantPriceEntry.price ? relevantPriceEntry.price : lastPrice,
+      });
     }
+
     // Emitting stocks with their respective delayed prices to connected clients
     io.emit('stockPriceUpdate', stocksWithPrices);
-  }, 1000); // This will fetch and send updates every second
+  }, 1000); // Send updates every second
 };
 // Schedule a task to delete old prices
 exports.cleanupOldPrices = async () => {
