@@ -31,15 +31,24 @@ exports.updateStockAndPricesCache = async () => {
     }).sort({ createdAt: 1 });
 
     let aiProgress = prices.length > 100 ? 100 : prices.length;
-    let lastPrice = prices.length > 0 ? prices[0].price : null;
 
-    if (aiProgress === 0) {
-      const lastPriceBeforeDelay = await StockPrice.findOne({
-        ticker: stock.ticker,
-        createdAt: { $lt: fromTime15 },
-      }).sort({ createdAt: -1 });
-      lastPrice = lastPriceBeforeDelay ? lastPriceBeforeDelay.price : null;
-    }
+    const currentTime = new Date(
+      Date.now() - process.env.DELAY_TIME * 60 * 1000
+    );
+    const price = await StockPrice.find({ ticker })
+      .where('createdAt')
+      .lt(currentTime)
+      .sort('-createdAt')
+      .limit(1)
+      .select('price');
+
+    let lastPrice = price[0]?.price;
+
+    const lastPriceBeforeDelay = await StockPrice.findOne({
+      ticker: stock.ticker,
+      createdAt: { $lt: fromTime15 },
+    }).sort({ createdAt: -1 });
+    lastPrice = lastPriceBeforeDelay ? lastPriceBeforeDelay.price : null;
 
     stockAndPrices[stock.ticker] = {
       companyName: stock.companyName,
