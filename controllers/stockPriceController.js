@@ -15,7 +15,7 @@ let checkPongInterval;
 let lastPongTimestamp = null;
 let stockPriceBatch = [];
 let stockAndPrices = {};
-
+let lastSentPrices = {};
 exports.updateStockAndPricesCache = async () => {
   const stocks = await Stock.find();
   for (const stock of stocks) {
