@@ -35,7 +35,7 @@ exports.updateStockAndPricesCache = async () => {
     const currentTime = new Date(
       Date.now() - process.env.DELAY_TIME * 60 * 1000
     );
-    const price = await StockPrice.find({ ticker })
+    const price = await StockPrice.find({ ticker: stock.ticker })
       .where('createdAt')
       .lt(currentTime)
       .sort('-createdAt')
