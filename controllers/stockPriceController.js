@@ -169,13 +169,19 @@ exports.sendStockUpdates = (io) => {
         (p) => p.createdAt >= fromTime && p.createdAt <= toTime
       );
 
-      if (!relevantPriceEntry) {
-      }
+      // Use relevant price, last known price, or the last price before DELAY_TIME
+      let priceToSend = relevantPriceEntry
+        ? relevantPriceEntry.price
+        : lastSentPrices[ticker] || stockData.lastPrice;
+
+      // Update the last sent price for the ticker
+      lastSentPrices[ticker] = priceToSend;
+
       stocksWithPrices.push({
         aiProgress: stockData.aiProgress,
         ticker: ticker,
         companyName: stockData.companyName,
-        price: relevantPriceEntry.price ? relevantPriceEntry.price : lastPrice,
+        price: priceToSend,
       });
     }
 
