@@ -18,6 +18,7 @@ module.exports = function () {
   setInterval(updateCryptoPrices, 5 * 60 * 1000);
   // This will run the cleanup task
   setInterval(cleanupOldPrices, 24 * 60 * 60 * 1000);
+  setInterval(startBatchInsertInterval, 15 * 1000);
   setInterval(connectToFinnhub, 5 * 60 * 1000);
   // Connect to Finnhub Websocket after all initializations
   connectToFinnhub();

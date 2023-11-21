@@ -14,7 +14,7 @@ let ws;
 let pingInterval;
 let checkPongInterval;
 let lastPongTimestamp = null;
-
+let stockPriceBatch = [];
 const connectToFinnhub = async () => {
   if (ws) {
     ws.removeAllListeners();
@@ -87,7 +87,11 @@ const connectToFinnhub = async () => {
           // Store this price in the cache for the symbol
           tickerPriceCache[symbol] = price;
           // Create a new stock price entry
-          await StockPrice.create({ ticker: symbol, price });
+          stockPriceBatch.push({
+            ticker: symbol,
+            price,
+            createdAt: new Date(currentTime),
+          });
         }
       }
     }
@@ -151,4 +155,15 @@ exports.sendStockUpdates = (io) => {
 exports.cleanupOldPrices = async () => {
   const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
   await StockPrice.deleteMany({ createdAt: { $lt: fourDaysAgo } });
+};
+
+exports.startBatchInsertInterval = async () => {
+  if (stockPriceBatch.length > 0) {
+    try {
+      await StockPrice.insertMany(stockPriceBatch);
+      stockPriceBatch = [];
+    } catch (error) {
+      console.error('Error in batch insert:', error);
+    }
+  }
 };
