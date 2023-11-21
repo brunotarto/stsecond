@@ -1,6 +1,7 @@
 const {
   connectToFinnhub,
   cleanupOldPrices,
+  startBatchInsertInterval,
 } = require('../controllers/stockPriceController');
 const { updateMarketStatus } = require('../controllers/marketStatusController');
 const { updateCryptoPrices } = require('../controllers/cryptoPriceController');
