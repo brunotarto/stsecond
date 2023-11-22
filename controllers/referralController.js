@@ -20,10 +20,18 @@ async function getReferrals(userId) {
         amountUSD: +process.env.MONTHLY_SUBSCRIPTION_FEE,
       });
 
+      const deposited = !!(await Transaction.findOne({
+        userId: referral._id,
+        action: 'deposit',
+        amountUSD: { $gt: 100 },
+      }));
+
       return {
         email: maskEmail(referral.email),
+        isVerified: referrals.isVerified,
         purchaseAnnuallyCount,
         purchaseMonthlyCount,
+        deposited,
       };
     })
   );
