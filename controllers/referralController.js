@@ -28,7 +28,7 @@ async function getReferrals(userId) {
 
       return {
         email: maskEmail(referral.email),
-        isVerified: referrals.isVerified,
+        isVerified: referral.isVerified,
         purchaseAnnuallyCount,
         purchaseMonthlyCount,
         deposited,
