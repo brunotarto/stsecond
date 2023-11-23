@@ -21,6 +21,21 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getAllUnfilledOrders = catchAsync(async (req, res, next) => {
+  const orders = await Order.find({
+    userId: req.user._id,
+    orderStatus: 'unfilled',
+  });
+
+  res.status(200).json({
+    status: 'success',
+    results: orders.length,
+    data: {
+      orders,
+    },
+  });
+});
+
 const createOrder = async (orderDetails, session) => {
   const {
     userId,

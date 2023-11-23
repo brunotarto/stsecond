@@ -23,7 +23,7 @@ async function getReferrals(userId) {
       const deposited = !!(await Transaction.findOne({
         userId: referral._id,
         action: 'deposit',
-        amountUSD: { $gt: 100 },
+        amountUSD: { $gt: 1000 },
       }));
 
       return {
