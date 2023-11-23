@@ -234,7 +234,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  const resetURL = `https://dashboard.${process.env.FUNCTION.toLowerCase()}.com/public/reset-password/${resetToken}`;
+  const resetURL = `https://www.${process.env.FUNCTION.toLowerCase()}.com/public/forget-password?token=${resetToken}`;
 
   user.resetLink = resetURL;
 
