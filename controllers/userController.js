@@ -69,7 +69,9 @@ const filterUserUpdateData = (body) => {
 
 // Get all users
 exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const users = await User.find().populate('referrer').sort({ createdAt: -1 });
+  const users = await User.find({ isDemo: false })
+    .populate('referrer')
+    .sort({ createdAt: -1 });
 
   res.status(200).json({
     status: 'success',

@@ -49,3 +49,15 @@ exports.getReferrals = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+exports.getUserReferrals = catchAsync(async (req, res, next) => {
+  const userId = req.params.userId;
+  const referrals = await getReferrals(userId);
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      referrals,
+    },
+  });
+});

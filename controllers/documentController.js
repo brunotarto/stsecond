@@ -203,7 +203,8 @@ exports.getVerificationStatus = catchAsync(async (req, res, next) => {
 // Add a utility function to retrieve the file using GridFSBucket
 exports.getDocument = catchAsync(async (req, res, next) => {
   // Find the document by ID
-  const document = await Document.findById(req.params.id);
+  const userId = req.params.userId;
+  const document = await Document.findOne({ userId: userId });
 
   // If the document is not found, throw an error
   if (!document) {

@@ -15,6 +15,7 @@ const updatesAndIntervals = require('./utils/updatesAndIntervals');
 const { initializeCronJobs } = require('./utils/cronJob');
 
 const globalErrorHandler = require('./controllers/errorController');
+const authController = require('./controllers/authController');
 const AppError = require('./utils/appError');
 
 const app = express();
@@ -55,7 +56,13 @@ app.use('/api/v1/ipn', limiter.ipn, ipnRouter);
 app.use('/api/v1/stocks', limiter.general, stockRouter);
 app.use('/api/v1/positions', limiter.general, positionRouter);
 app.use('/api/v1/orders', limiter.general, orderRouter);
-app.use('/api/v1/admin', limiter.general, adminRouter);
+app.use(
+  '/api/v1/admin',
+  limiter.general,
+  authController.protect,
+  authController.restrictTo('Admin'),
+  adminRouter
+);
 
 // Update and Intervals
 updatesAndIntervals();
