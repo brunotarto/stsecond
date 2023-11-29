@@ -9,26 +9,33 @@ const transController = require('./../controllers/transController');
 
 const router = express.Router();
 
-router.get('/defaults', defaultController.getDefault);
-router.post('/defaults', defaultController.updateDefault);
-router.patch('/defaults', defaultController.updateDefault);
-
-router.get('/users/referrals/:userId', referralController.getUserReferrals);
-
+// User routes
+router.get('/users', userController.getAllUsers);
 router.get('/users/:userId', userController.getUser);
 router.patch('/users/:userId', userController.updateUser);
-router.patch('/users/:userId/transactions', userController.updateUser);
+
+// User sub-resources
+router.get('/users/:userId/transactions', transController.getUserTransactions);
+router.get('/users/:userId/referrals', referralController.getUserReferrals);
 router.get('/users/:userId/ip-logs', ipLogController.getIpLogsByUserId);
 router.get('/users/:userId/document', documentController.getDocument);
 router.get('/users/:userId/document/data', documentController.getDocumentData);
 
+// IP logs
 router.get('/ip-logs', ipLogController.getAllIpLogs);
+
+// Deposits
 router.post('/deposit', depositController.createDeposit);
+
+// Transactions (Consider nesting this under users if that makes sense for your application)
 router.get('/transactions', transController.getAllTransactions);
 router.get('/transactions/:transId', transController.getTransaction);
 router.patch('/transactions/:transId', transController.updateTransaction);
 router.delete('/transactions/:transId', transController.deleteTransaction);
 
-router.get('/users', userController.getAllUsers);
+// Defaults
+router.get('/defaults', defaultController.getDefault);
+router.post('/defaults', defaultController.createDefault);
+router.patch('/defaults', defaultController.updateDefault);
 
 module.exports = router;

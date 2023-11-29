@@ -13,6 +13,40 @@ exports.getDefault = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.createDefault = catchAsync(async (req, res, next) => {
+  const existingDefault = await Default.findOne();
+
+  if (existingDefault) {
+    return next(
+      new AppError(
+        'Default values already exist. Cannot create more than one.',
+        400
+      )
+    );
+  }
+
+  const {
+    defaultProfitPercentage,
+    defaultLossPercentage,
+    defaultProfitLossRatio,
+    defaultMarginRatios,
+  } = req.body;
+
+  const newDefault = await Default.create({
+    defaultProfitPercentage,
+    defaultLossPercentage,
+    defaultProfitLossRatio,
+    defaultMarginRatios,
+  });
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      default: newDefault,
+    },
+  });
+});
+
 exports.updateDefault = catchAsync(async (req, res, next) => {
   const data = {
     defaultProfitPercentage: req.body.defaultProfitPercentage,

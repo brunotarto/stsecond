@@ -59,6 +59,7 @@ exports.getTransaction = catchAsync(async (req, res, next) => {
   });
 });
 
+// admins functions
 exports.updateTransaction = catchAsync(async (req, res, next) => {
   // Removing empty values from req.body
   const updates = Object.entries(req.body).reduce((acc, [key, value]) => {
@@ -106,5 +107,28 @@ exports.deleteTransaction = catchAsync(async (req, res, next) => {
   res.status(204).json({
     status: 'success',
     data: null,
+  });
+});
+
+exports.getUserTransactions = catchAsync(async (req, res, next) => {
+  // Add a condition to the query based on the user's role
+  const userId = req.params.userId;
+  const baseQuery = Transaction.find({ userId });
+
+  const features = new APIFeatures(baseQuery, req.query)
+    .filter()
+    .sort()
+    .field()
+    .skip()
+    .dateRange();
+
+  const transactions = await features.query;
+
+  res.status(200).json({
+    status: 'success',
+    results: transactions.length,
+    data: {
+      transactions,
+    },
   });
 });
