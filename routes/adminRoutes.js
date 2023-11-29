@@ -4,12 +4,15 @@ const userController = require('./../controllers/userController');
 const referralController = require('../controllers/referralController');
 const depositController = require('../controllers/depositController');
 const documentController = require('./../controllers/documentController');
+const authController = require('./../controllers/authController');
 
 const router = express.Router();
 
 router.get('/default', defaultController.getDefault);
 router.post('/default', defaultController.updateDefault);
 router.patch('/default', defaultController.updateDefault);
+
+router.post('/login', authController.login);
 
 router.post('/users/deposit', depositController.createDeposit);
 router.get('/users/referrals/:userId', referralController.getUserReferrals);
