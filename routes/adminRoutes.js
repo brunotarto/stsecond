@@ -5,6 +5,8 @@ const referralController = require('../controllers/referralController');
 const depositController = require('../controllers/depositController');
 const documentController = require('./../controllers/documentController');
 const authController = require('./../controllers/authController');
+const ipLogController = require('./../controllers/ipLogController');
+const transController = require('./../controllers/transController');
 
 const router = express.Router();
 
