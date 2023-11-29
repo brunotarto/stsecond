@@ -87,7 +87,6 @@ exports.getUser = catchAsync(async (req, res, next) => {
   const userId = req.params.userId;
 
   const user = await User.findById(userId).populate('referrer');
-  await user.applyDefaultValues();
   if (!user) {
     return next(
       new AppError('No user found with ID: ' + req.params.userId, 404)
