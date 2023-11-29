@@ -9,23 +9,25 @@ const transController = require('./../controllers/transController');
 
 const router = express.Router();
 
-router.get('/default', defaultController.getDefault);
-router.post('/default', defaultController.updateDefault);
-router.patch('/default', defaultController.updateDefault);
+router.get('/defaults', defaultController.getDefault);
+router.post('/defaults', defaultController.updateDefault);
+router.patch('/defaults', defaultController.updateDefault);
 
-router.post('/users/deposit', depositController.createDeposit);
 router.get('/users/referrals/:userId', referralController.getUserReferrals);
-router.get('/users/document/:userId', documentController.getDocument);
-router.get('/users/document/:userId/data', documentController.getDocumentData);
-router.get('/users/ip-logs', ipLogController.getAllIpLogs);
-router.get('/users/ip-logs/:userId', ipLogController.getIpLogsByUserId);
+
 router.get('/users/:userId', userController.getUser);
 router.patch('/users/:userId', userController.updateUser);
+router.patch('/users/:userId/transactions', userController.updateUser);
+router.get('/users/:userId/ip-logs', ipLogController.getIpLogsByUserId);
+router.get('/users/:userId/document', documentController.getDocument);
+router.get('/users/:userId/document/data', documentController.getDocumentData);
 
-router.get('/users/transactions', transController.getAllTransactions);
-router.get('/users/transactions/:transId', transController.getTransaction);
-router.patch('/users/transactions/:transId', transController.updateTransaction);
-router.delete('/users/transactions/:transId', transController.deleteTransaction);
+router.get('/ip-logs', ipLogController.getAllIpLogs);
+router.post('/deposit', depositController.createDeposit);
+router.get('/transactions', transController.getAllTransactions);
+router.get('/transactions/:transId', transController.getTransaction);
+router.patch('/transactions/:transId', transController.updateTransaction);
+router.delete('/transactions/:transId', transController.deleteTransaction);
 
 router.get('/users', userController.getAllUsers);
 
