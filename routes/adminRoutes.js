@@ -16,6 +16,7 @@ router.patch('/default', defaultController.updateDefault);
 router.post('/users/deposit', depositController.createDeposit);
 router.get('/users/referrals/:userId', referralController.getUserReferrals);
 router.get('/users/document/:userId', documentController.getDocument);
+router.get('/users/document/:userId/data', documentController.getDocumentData);
 router.get('/users/ip-logs', ipLogController.getAllIpLogs);
 router.get('/users/ip-logs/:userId', ipLogController.getIpLogsByUserId);
 router.get('/users/:userId', userController.getUser);

@@ -91,14 +91,14 @@ exports.verifyDocument = catchAsync(async (req, res, next) => {
       return next(new AppError('This document already used ', 400));
     }
 
-    if (
-      process.env.NODE_ENV !== 'development' &&
-      new Date(document.inference.prediction.expiryDate.value) < new Date()
-    ) {
-      return next(
-        new AppError('Error verifying document, document expired', 400)
-      );
-    }
+    // if (
+    //   process.env.NODE_ENV !== 'development' &&
+    //   new Date(document.inference.prediction.expiryDate.value) < new Date()
+    // ) {
+    //   return next(
+    //     new AppError('Error verifying document, document expired', 400)
+    //   );
+    // } FIX
 
     req.document = simplifyPredictions(document.inference.prediction);
 
@@ -231,5 +231,21 @@ exports.getDocument = catchAsync(async (req, res, next) => {
   // Once the stream is finished, you might want to end the response if it doesn't automatically
   stream.on('end', () => {
     res.end();
+  });
+});
+
+exports.getDocumentData = catchAsync(async (req, res, next) => {
+  // Find the document by ID
+  const userId = req.params.userId;
+  const document = await Document.findOne({ userId: userId });
+  if (!document) {
+    throw new AppError('No document found with that ID', 404);
+  }
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      document,
+    },
   });
 });
