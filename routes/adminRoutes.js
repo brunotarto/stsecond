@@ -8,6 +8,7 @@ const ipLogController = require('./../controllers/ipLogController');
 const transController = require('./../controllers/transController');
 const positionController = require('../controllers/positionController');
 const orderController = require('../controllers/orderController');
+const subscriptionController = require('../controllers/subscriptionController');
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ router.patch('/users/:userId', userController.updateUser);
 router.get('/users/:userId/transactions', transController.getUserTransactions);
 router.get('/users/:userId/positions', positionController.getUserPositions);
 router.get('/users/:userId/orders', orderController.getUserOrders);
+router.get('/users/:userId/subscription', subscriptionController.getUserSubscriptionStatus);
 router.get('/users/:userId/referrals', referralController.getUserReferrals);
 router.get('/users/:userId/ip-logs', ipLogController.getIpLogsByUserId);
 router.get('/users/:userId/document', documentController.getDocument);
