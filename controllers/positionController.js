@@ -659,7 +659,7 @@ exports.getUserPositions = catchAsync(async (req, res, next) => {
   const positions = await features.query;
   res.status(200).json({
     status: 'success',
-    results: orders.length,
+    results: positions.length,
     data: {
       positions,
     },
