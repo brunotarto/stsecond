@@ -140,6 +140,7 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
       cryptoType: paymentMethod,
       cryptoAmount,
       status: 'pending',
+      memo: token || paymentMethod,
     });
     await newTransaction.save({ session });
     const transactionId = newTransaction._id;

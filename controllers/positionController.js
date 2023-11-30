@@ -4,6 +4,8 @@ const Transaction = require('../models/transModel');
 const Order = require('../models/orderModel');
 const User = require('../models/userModel');
 const AppError = require('../utils/appError');
+const APIFeatures = require('../utils/apiFeatures');
+
 const catchAsync = require('../utils/catchAsync');
 const {
   getTickerPrice,
@@ -638,5 +640,28 @@ exports.sumOpenEquity = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: { totalOpenEquity: totalEquity },
+  });
+});
+
+//admin functions
+
+exports.getUserPositions = catchAsync(async (req, res, next) => {
+  const userId = req.params.userId;
+  const baseQuery = Position.find({ userId });
+
+  const features = new APIFeatures(baseQuery, req.query)
+    .filter()
+    .sort()
+    .field()
+    .skip()
+    .dateRange();
+
+  const positions = await features.query;
+  res.status(200).json({
+    status: 'success',
+    results: orders.length,
+    data: {
+      positions,
+    },
   });
 });

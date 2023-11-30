@@ -6,6 +6,7 @@ const Transaction = require('../models/transModel');
 
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError'); // Error wrapper
+const APIFeatures = require('../utils/apiFeatures');
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
   const orders = await Order.find({
@@ -135,4 +136,27 @@ exports.cancelOrder = catchAsync(async (req, res, next) => {
     session.endSession(); // Always end the session
     next(error); // Pass the error to the error handling middleware
   }
+});
+
+/// Admin functions
+
+exports.getUserOrders = catchAsync(async (req, res, next) => {
+  const userId = req.params.userId;
+  const baseQuery = Order.find({ userId });
+
+  const features = new APIFeatures(baseQuery, req.query)
+    .filter()
+    .sort()
+    .field()
+    .skip()
+    .dateRange();
+
+  const orders = await features.query;
+  res.status(200).json({
+    status: 'success',
+    results: orders.length,
+    data: {
+      orders,
+    },
+  });
 });
