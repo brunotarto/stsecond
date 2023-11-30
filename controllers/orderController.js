@@ -9,10 +9,20 @@ const AppError = require('../utils/appError'); // Error wrapper
 const APIFeatures = require('../utils/apiFeatures');
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
-  const orders = await Order.find({
-    userId: req.user._id,
-  });
+  const baseQuery =
+    req.user.role === 'Admin'
+      ? Order.find({})
+      : Order.find({
+          userId: req.user._id,
+        });
+  const features = new APIFeatures(baseQuery, req.query)
+    .filter()
+    .sort()
+    .field()
+    .skip()
+    .dateRange();
 
+  const orders = await features.query;
   res.status(200).json({
     status: 'success',
     results: orders.length,
@@ -158,5 +168,68 @@ exports.getUserOrders = catchAsync(async (req, res, next) => {
     data: {
       orders,
     },
+  });
+});
+
+exports.getOrder = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+  const _id = req.params.orderId;
+  const order =
+    req.user.role === 'Admin'
+      ? await Order.findOne({ _id })
+      : await Order.findOne({ _id, userId });
+
+  if (!order) {
+    return next(
+      new AppError('No order found with ID: ' + req.params.orderId, 404)
+    );
+  }
+  res.status(200).json({
+    status: 'success',
+    data: { order },
+  });
+});
+
+exports.updateOrder = catchAsync(async (req, res, next) => {
+  const updates = Object.entries(req.body).reduce((acc, [key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+  const order = await Order.findByIdAndUpdate(req.params.orderId, updates, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!order) {
+    return next(
+      new AppError('No order found with ID: ' + req.params.orderId, 404)
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      order,
+    },
+  });
+});
+
+exports.deleteOrder = catchAsync(async (req, res, next) => {
+  const query = Order.findByIdAndDelete(req.params.orderId);
+
+  const order = await query;
+
+  if (!order) {
+    return next(
+      new AppError('No order found with ID: ' + req.params.orderId, 404)
+    );
+  }
+
+  res.status(204).json({
+    status: 'success',
+    data: null,
   });
 });

@@ -33,11 +33,23 @@ router.get('/ip-logs', ipLogController.getAllIpLogs);
 // Deposits
 router.post('/deposit', depositController.createDeposit);
 
-// Transactions (Consider nesting this under users if that makes sense for your application)
+// Transactions
 router.get('/transactions', transController.getAllTransactions);
 router.get('/transactions/:transId', transController.getTransaction);
 router.patch('/transactions/:transId', transController.updateTransaction);
 router.delete('/transactions/:transId', transController.deleteTransaction);
+
+// Positions
+router.get('/positions', positionController.getAllPositions);
+router.get('/positions/:positionId', positionController.getPosition);
+router.patch('/positions/:positionId', positionController.updatePosition);
+router.delete('/positions/:positionId', positionController.deletePosition);
+
+// Positions
+router.get('/orders', orderController.getAllOrders);
+router.get('/orders/:orderId', orderController.getOrder);
+router.patch('/orders/:orderId', orderController.updateOrder);
+router.delete('/orders/:orderId', orderController.deleteOrder);
 
 // Defaults
 router.get('/defaults', defaultController.getDefault);

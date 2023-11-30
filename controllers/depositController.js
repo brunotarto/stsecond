@@ -32,7 +32,6 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
       { $inc: { accountBalance: amountUSD } },
       { validateBeforeSave: false, new: true, session }
     );
-
     if (!user) {
       await session.abortTransaction();
       session.endSession();
@@ -41,7 +40,7 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
 
     // Record the deposit transaction
     const newTransaction = new Transaction({
-      userID: userId,
+      userId,
       action,
       amountUSD,
       cryptoType,
@@ -57,12 +56,10 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
     await session.commitTransaction();
     session.endSession();
 
-    res
-      .status(200)
-      .json({
-        message: 'Deposit transaction created',
-        data: { newTransaction },
-      });
+    res.status(200).json({
+      message: 'Deposit transaction created',
+      data: { newTransaction },
+    });
   } catch (error) {
     // Rollback the transaction on error
     await session.abortTransaction();

@@ -573,25 +573,36 @@ exports.closePosition = catchAsync(async (req, res, next) => {
 
 exports.getPosition = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
-  const _id = req.params.id;
+  const _id = req.params.positionId;
   const position =
     req.user.role === 'Admin'
       ? await Position.findOne({ _id })
       : await Position.findOne({ _id, userId });
 
+  if (!position) {
+    return next(
+      new AppError('No position found with ID: ' + req.params.positionId, 404)
+    );
+  }
   res.status(200).json({
     status: 'success',
-    data: position,
+    data: { position },
   });
 });
 exports.getAllPositions = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
 
-  const positions =
-    req.user.role === 'Admin'
-      ? await Position.find({})
-      : await Position.find({ userId });
+  const baseQuery =
+    req.user.role === 'Admin' ? Position.find({}) : Position.find({ userId });
 
+  const features = new APIFeatures(baseQuery, req.query)
+    .filter()
+    .sort()
+    .field()
+    .skip()
+    .dateRange();
+
+  const positions = await features.query;
   res.status(200).json({
     status: 'success',
     results: positions.length,
@@ -663,5 +674,53 @@ exports.getUserPositions = catchAsync(async (req, res, next) => {
     data: {
       positions,
     },
+  });
+});
+
+exports.updatePosition = catchAsync(async (req, res, next) => {
+  const updates = Object.entries(req.body).reduce((acc, [key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+  const position = await Position.findByIdAndUpdate(
+    req.params.positionId,
+    updates,
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  if (!position) {
+    return next(
+      new AppError('No position found with ID: ' + req.params.positionId, 404)
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      position,
+    },
+  });
+});
+
+exports.deletePosition = catchAsync(async (req, res, next) => {
+  const query = Position.findByIdAndDelete(req.params.positionId);
+
+  const position = await query;
+
+  if (!position) {
+    return next(
+      new AppError('No position found with ID: ' + req.params.transId, 404)
+    );
+  }
+
+  res.status(204).json({
+    status: 'success',
+    data: null,
   });
 });

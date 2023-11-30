@@ -5,140 +5,139 @@ const bcrypt = require('bcryptjs');
 const validate = require('multicoin-address-validator').validate;
 const Default = require('./defaultModel'); // Ensure correct path
 
-const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: [true, 'Please provide your email'],
-    unique: [true],
-    lowercase: true,
-    validate: [validator.isEmail, 'Please provide a valid email'],
-    maxLength: [50, 'Name cannot be longer than 50 characters'],
-  },
-  role: {
-    type: String,
-    enum: ['User', 'Admin'],
-    default: 'User',
-  },
-  password: {
-    type: String,
-    required: [true, 'Please provide a password'],
-    minLength: 8,
-    select: false,
-  },
-  passwordConfirm: {
-    type: String,
-    required: [true, 'Please confirm your password'],
-    validate: {
-      validator: function (el) {
-        // Only works on SAVE and CREATE
-        return el === this.password;
-      },
-      message: 'Passwords are not the same!',
-    },
-  },
-  accountBalance: {
-    type: Number,
-    default: 0.0,
-  },
-  withdrawalAddresses: {
-    BTC: {
+const userSchema = new mongoose.Schema(
+  {
+    email: {
       type: String,
-      default: '',
-      validate: {
-        validator: function (address) {
-          return address === '' || validate(address, 'BTC');
-        },
-        message: 'Invalid BTC address',
-      },
+      required: [true, 'Please provide your email'],
+      unique: [true],
+      lowercase: true,
+      validate: [validator.isEmail, 'Please provide a valid email'],
+      maxLength: [50, 'Name cannot be longer than 50 characters'],
     },
-    ETH: {
+    role: {
       type: String,
-      default: '',
-      validate: {
-        validator: function (address) {
-          return address === '' || validate(address, 'ETH');
-        },
-        message: 'Invalid ETH address',
-      },
+      enum: ['User', 'Admin'],
+      default: 'User',
     },
-    BNB: {
+    password: {
       type: String,
-      default: '',
-      validate: {
-        validator: function (address) {
-          return address === '' || validate(address, 'ETH');
-        },
-        message: 'Invalid BNB address',
-      },
+      required: [true, 'Please provide a password'],
+      minLength: 8,
+      select: false,
     },
-    TRX: {
+    passwordConfirm: {
       type: String,
-      default: '',
+      required: [true, 'Please confirm your password'],
       validate: {
-        validator: function (address) {
-          return address === '' || validate(address, 'TRX');
+        validator: function (el) {
+          // Only works on SAVE and CREATE
+          return el === this.password;
         },
-        message: 'Invalid TRX address',
+        message: 'Passwords are not the same!',
       },
     },
-  },
-  profitPercentage: {
-    type: Number,
-    default: null, // will set this value programmatically
-  },
-  lossPercentage: {
-    type: Number,
-    default: null, // will set this value programmatically
-  },
-  profitLossRatio: {
-    type: Number,
-    default: null, // will set this value programmatically
-  },
-  marginRatios: {
-    type: Array,
-    default: null, // will set this value programmatically
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+    accountBalance: {
+      type: Number,
+      default: 0.0,
+    },
+    withdrawalAddresses: {
+      BTC: {
+        type: String,
+        default: '',
+        validate: {
+          validator: function (address) {
+            return address === '' || validate(address, 'BTC');
+          },
+          message: 'Invalid BTC address',
+        },
+      },
+      ETH: {
+        type: String,
+        default: '',
+        validate: {
+          validator: function (address) {
+            return address === '' || validate(address, 'ETH');
+          },
+          message: 'Invalid ETH address',
+        },
+      },
+      BNB: {
+        type: String,
+        default: '',
+        validate: {
+          validator: function (address) {
+            return address === '' || validate(address, 'ETH');
+          },
+          message: 'Invalid BNB address',
+        },
+      },
+      TRX: {
+        type: String,
+        default: '',
+        validate: {
+          validator: function (address) {
+            return address === '' || validate(address, 'TRX');
+          },
+          message: 'Invalid TRX address',
+        },
+      },
+    },
+    profitPercentage: {
+      type: Number,
+      default: null, // will set this value programmatically
+    },
+    lossPercentage: {
+      type: Number,
+      default: null, // will set this value programmatically
+    },
+    profitLossRatio: {
+      type: Number,
+      default: null, // will set this value programmatically
+    },
+    marginRatios: {
+      type: Array,
+      default: null, // will set this value programmatically
+    },
 
-  passwordResetToken: String,
-  passwordResetExpires: Date,
-  changedPasswordAt: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
+    changedPasswordAt: Date,
 
-  referrer: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    referrer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    referralCode: {
+      type: String,
+      unique: true,
+    },
+    twoFASecret: {
+      type: String,
+    },
+    otp_enabled: {
+      type: Boolean,
+      default: false,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isDemo: {
+      type: Boolean,
+      default: false,
+    },
+    demoId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    restrictedActions: {
+      type: Array,
+      default: [],
+    },
   },
-  referralCode: {
-    type: String,
-    unique: true,
-  },
-  twoFASecret: {
-    type: String,
-  },
-  otp_enabled: {
-    type: Boolean,
-    default: false,
-  },
-  isVerified: {
-    type: Boolean,
-    default: false,
-  },
-  isDemo: {
-    type: Boolean,
-    default: false,
-  },
-  demoId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  },
-  restrictedActions: {
-    type: Array,
-    default: [],
-  },
-});
+  { timestamps: true }
+);
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
