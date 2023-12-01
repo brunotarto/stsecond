@@ -2,16 +2,24 @@ const Transaction = require('../models/transModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const APIFeatures = require('../utils/apiFeatures');
+const User = require('../models/userModel');
 
 exports.getAllTransactions = catchAsync(async (req, res, next) => {
-  // Add a condition to the query based on the user's role
+  let query;
 
-  const baseQuery =
-    req.user.role === 'Admin'
-      ? Transaction.find({ isDemo: false }).populate('userId')
-      : Transaction.find({ userId: req.user._id });
+  if (req.user.role === 'Admin') {
+    // Find IDs of all demo accounts
+    const demoUsers = await User.find({ isDemo: true }).select('_id');
+    const demoUserIds = demoUsers.map((user) => user._id);
 
-  const features = new APIFeatures(baseQuery, req.query)
+    // Exclude transactions belonging to demo accounts
+    query = Transaction.find({ userId: { $nin: demoUserIds } });
+  } else {
+    // For non-admin users, only return their own transactions
+    query = Transaction.find({ userId: req.user._id });
+  }
+
+  const features = new APIFeatures(query, req.query)
     .filter()
     .sort()
     .field()

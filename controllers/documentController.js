@@ -85,7 +85,10 @@ exports.verifyDocument = catchAsync(async (req, res, next) => {
 
     const idNumber = document.inference.prediction.idNumber.value;
 
-    const documentSameIdNumber = await Document.findOne({ idNumber });
+    const documentSameIdNumber = await Document.findOne({
+      idNumber,
+      isValid: true,
+    });
 
     if (documentSameIdNumber) {
       return next(new AppError('This document already used ', 400));
@@ -189,7 +192,7 @@ exports.getVerificationStatus = catchAsync(async (req, res, next) => {
     });
   }
 
-  const document = await Document.findOne({ userId });
+  const document = await Document.findOne({ userId, isValid: true });
   document.documentPath = null;
   res.status(201).json({
     status: 'success',
@@ -200,11 +203,53 @@ exports.getVerificationStatus = catchAsync(async (req, res, next) => {
   });
 });
 
-// Add a utility function to retrieve the file using GridFSBucket
-exports.getDocument = catchAsync(async (req, res, next) => {
+exports.getDocumentsData = catchAsync(async (req, res, next) => {
   // Find the document by ID
   const userId = req.params.userId;
-  const document = await Document.findOne({ userId: userId });
+  const documents = await Document.find({ userId: userId });
+  if (!documents) {
+    throw new AppError('No document found with that ID', 404);
+  }
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      documents,
+    },
+  });
+});
+
+exports.updateDocumentValidity = catchAsync(async (req, res, next) => {
+  // Find the document by ID
+  const userId = req.params.userId;
+  const documentId = req.params.documentId;
+
+  const documents = await Document.findOneAndUpdate(
+    { _id: documentId, userId: userId },
+    { isValid: req.body.isValid },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+  if (!documents) {
+    throw new AppError('No document found with that ID', 404);
+  }
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      documents,
+    },
+  });
+});
+// Add a utility function to retrieve the file using GridFSBucket
+exports.getDocumentImage = catchAsync(async (req, res, next) => {
+  // Find the document by ID
+  const document = await Document.findOne({
+    _id: req.params.documentId,
+    userId: req.params.userId,
+  });
 
   // If the document is not found, throw an error
   if (!document) {
@@ -231,21 +276,5 @@ exports.getDocument = catchAsync(async (req, res, next) => {
   // Once the stream is finished, you might want to end the response if it doesn't automatically
   stream.on('end', () => {
     res.end();
-  });
-});
-
-exports.getDocumentData = catchAsync(async (req, res, next) => {
-  // Find the document by ID
-  const userId = req.params.userId;
-  const document = await Document.findOne({ userId: userId });
-  if (!document) {
-    throw new AppError('No document found with that ID', 404);
-  }
-
-  res.status(201).json({
-    status: 'success',
-    data: {
-      document,
-    },
   });
 });

@@ -15,6 +15,7 @@ const router = express.Router();
 // User routes
 router.get('/users', userController.getAllUsers);
 router.get('/users/:userId', userController.getUser);
+router.patch('/users/:userId/balance', userController.updateUserBalance);
 router.patch('/users/:userId', userController.updateUser);
 
 // User sub-resources
@@ -24,8 +25,9 @@ router.get('/users/:userId/orders', orderController.getUserOrders);
 router.get('/users/:userId/subscription', subscriptionController.getUserSubscriptionStatus);
 router.get('/users/:userId/referrals', referralController.getUserReferrals);
 router.get('/users/:userId/ip-logs', ipLogController.getIpLogsByUserId);
-router.get('/users/:userId/document', documentController.getDocument);
-router.get('/users/:userId/document/data', documentController.getDocumentData);
+router.get('/users/:userId/documents', documentController.getDocumentsData);
+router.get('/users/:userId/documents/:documentId', documentController.getDocumentImage);
+router.patch('/users/:userId/documents/:documentId', documentController.updateDocumentValidity);
 
 // IP logs
 router.get('/ip-logs', ipLogController.getAllIpLogs);
@@ -42,12 +44,14 @@ router.delete('/transactions/:transId', transController.deleteTransaction);
 // Positions
 router.get('/positions', positionController.getAllPositions);
 router.get('/positions/:positionId', positionController.getPosition);
+router.patch('/positions/:positionId/close', positionController.closePositionImmediately);
 router.patch('/positions/:positionId', positionController.updatePosition);
 router.delete('/positions/:positionId', positionController.deletePosition);
 
-// Positions
+// Orders
 router.get('/orders', orderController.getAllOrders);
 router.get('/orders/:orderId', orderController.getOrder);
+router.patch('/orders/:orderId/cancel', orderController.cancelOrder);
 router.patch('/orders/:orderId', orderController.updateOrder);
 router.delete('/orders/:orderId', orderController.deleteOrder);
 

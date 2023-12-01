@@ -4,12 +4,12 @@ const authController = require('./../controllers/authController');
 
 const router = express.Router();
 
-router.patch('/:id/close', authController.protect, positionController.closePosition);
-router.get('/limit', authController.protect, positionController.getAiPositionLimit);
-router.get('/total-profit-or-loss', authController.protect, positionController.sumProfitOrLoss);
-router.get('/total-open-equity', authController.protect, positionController.sumOpenEquity);
-router.get('/:id', authController.protect, positionController.getPosition);
-router.get('/', authController.protect, positionController.getAllPositions);
-router.post('/', authController.protect, positionController.createPosition);
+router.patch('/:positionId/close', positionController.closePosition);
+router.get('/limit', positionController.getAiPositionLimit);
+router.get('/total-profit-or-loss', positionController.totalProfitOrLoss);
+router.get('/total-open-equity', positionController.totalOpenEquity);
+router.get('/:positionId', positionController.getPosition);
+router.get('/', positionController.getAllPositions);
+router.post('/', positionController.createPosition);
 
 module.exports = router;

@@ -96,7 +96,7 @@ const userSchema = new mongoose.Schema(
       default: null, // will set this value programmatically
     },
     marginRatios: {
-      type: Array,
+      type: [Number],
       default: null, // will set this value programmatically
     },
 
@@ -200,16 +200,34 @@ userSchema.methods.applyDefaultValues = async function () {
   if (!defaults) return; // No defaults found
 
   // Check and set default values if necessary
-  if (this.profitPercentage === null) {
+  if (
+    this.profitPercentage === null ||
+    this.profitPercentage === '' ||
+    this.profitPercentage === undefined
+  ) {
     this.profitPercentage = defaults.defaultProfitPercentage;
   }
-  if (this.lossPercentage === null) {
+  if (
+    this.lossPercentage === null ||
+    this.lossPercentage === '' ||
+    this.lossPercentage === undefined
+  ) {
     this.lossPercentage = defaults.defaultLossPercentage;
   }
-  if (this.profitLossRatio === null) {
+  if (
+    this.profitLossRatio === null ||
+    this.profitLossRatio === '' ||
+    this.profitLossRatio === undefined
+  ) {
     this.profitLossRatio = defaults.defaultProfitLossRatio;
   }
-  if (!this.marginRatios || this.marginRatios.length === 0) {
+  if (
+    !this.marginRatios ||
+    this.marginRatios.length === 0 ||
+    marginRatios[0] === null ||
+    marginRatios[0] === undefined ||
+    marginRatios[0] === ''
+  ) {
     this.marginRatios = defaults.defaultMarginRatios;
   }
 };

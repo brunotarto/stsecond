@@ -7,6 +7,10 @@ const orderSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    positionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Position',
+    },
     ticker: {
       type: String,
       required: true,

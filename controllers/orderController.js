@@ -9,13 +9,21 @@ const AppError = require('../utils/appError'); // Error wrapper
 const APIFeatures = require('../utils/apiFeatures');
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
-  const baseQuery =
-    req.user.role === 'Admin'
-      ? Order.find({})
-      : Order.find({
-          userId: req.user._id,
-        });
-  const features = new APIFeatures(baseQuery, req.query)
+  let query;
+
+  if (req.user.role === 'Admin') {
+    // Find IDs of all demo accounts
+    const demoUsers = await User.find({ isDemo: true }).select('_id');
+    const demoUserIds = demoUsers.map((user) => user._id);
+
+    // Exclude transactions belonging to demo accounts
+    query = Order.find({ userId: { $nin: demoUserIds } });
+  } else {
+    // For non-admin users, only return their own transactions
+    query = Order.find({ userId: req.user._id });
+  }
+
+  const features = new APIFeatures(query, req.query)
     .filter()
     .sort()
     .field()
@@ -83,6 +91,7 @@ const createOrder = async (orderDetails, session) => {
         action: 'order',
         ticker,
         amountUSD: initialCapital,
+        memo: newOrder[0]._id,
       },
     ],
     { session }
@@ -93,12 +102,13 @@ const createOrder = async (orderDetails, session) => {
 exports.createOrder = createOrder;
 
 exports.cancelOrder = catchAsync(async (req, res, next) => {
+  const userId = req.user.role === 'Admin' ? req.body.userId : req.user._id;
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const order = await Order.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id, orderStatus: 'unfilled' },
+      { _id: req.params.id, userId, orderStatus: 'unfilled' },
       { orderStatus: 'canceled' },
       {
         new: true,

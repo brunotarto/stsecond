@@ -39,7 +39,10 @@ const documentSchema = new mongoose.Schema({
     required: [true, 'Document must have a id Number'],
     unique: true, // This enforces uniqueness
   },
-
+  isValid: {
+    type: Boolean,
+    default: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -79,7 +79,6 @@ const fetchUserSubscriptionStatus = async (userId) => {
     throw error;
   }
 };
-
 exports.fetchUserSubscriptionStatus = fetchUserSubscriptionStatus;
 
 const returnRemainingAiPositions = async (userId) => {
@@ -98,35 +97,6 @@ const returnRemainingAiPositions = async (userId) => {
     throw error;
   }
 };
-
-exports.getAiPositionLimit = catchAsync(async (req, res, next) => {
-  const userId = req.user._id;
-  const user = await User.findById(userId);
-
-  if (!user) {
-    return next(new AppError('User not found', 404));
-  }
-  let initialCount = user.isVerified ? 2 : 1;
-
-  const { isSubscribed } = await fetchUserSubscriptionStatus(userId);
-
-  initialCount = isSubscribed ? initialCount + 3 : initialCount;
-  // Counting AI positions that the user has opened today
-  const todayAiPositionsCount = await aiPositionsCount(userId);
-
-  // Calculating remaining AI position limit for the day
-  const remainingAiPositions = initialCount - todayAiPositionsCount;
-  const remainingTime = getRemainingTimeUntilReset();
-  res.status(200).json({
-    status: 'success',
-    data: {
-      dailyLimit: initialCount,
-      used: todayAiPositionsCount,
-      remaining: remainingAiPositions,
-      remainingTime,
-    },
-  });
-});
 
 const getRemainingTimeUntilReset = () => {
   // Current date and time
@@ -213,6 +183,217 @@ exports.sendOpenPositions = (io) => {
     sendUpdates();
   });
 };
+
+exports.cronCreatePosition = async (orderDetails) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      _id,
+      userId,
+      ticker,
+      direction,
+      marginRatio,
+      initialCapital,
+      orderCloseAtPrice,
+    } = orderDetails;
+
+    // Calculate the stock price and total shares
+    const price = await getTickerPrice(ticker, direction);
+
+    if (!price) {
+      throw new Error('Unable to retrieve stock price.');
+    }
+
+    // Calculate effective amount with margin
+    const effectiveAmount = initialCapital * marginRatio;
+    const totalShares = effectiveAmount / price;
+
+    const position = await Position.create(
+      [
+        {
+          userId,
+          ticker,
+          direction,
+          marginRatio,
+          totalShares,
+          initialCapital,
+          loan: effectiveAmount - initialCapital,
+          averageCost: price,
+          orderCloseAtPrice,
+        },
+      ],
+      { session }
+    );
+
+    await Transaction.create(
+      [
+        {
+          userId,
+          action: 'buy',
+          ticker,
+          amountUSD: initialCapital,
+          shares: totalShares,
+          memo: position._id,
+        },
+      ],
+      { session }
+    );
+
+    await Order.findByIdAndUpdate(
+      { _id },
+      { orderStatus: 'filled', positionId: position._id },
+      {
+        session,
+      }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error(`Error creating position for order:` + error);
+  }
+};
+
+const cronClosePosition = async (positionId) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const position = await Position.findById(positionId).session(session);
+    if (!position) {
+      await session.abortTransaction();
+      session.endSession();
+      console.error(`Position with ID ${positionId} not found.`);
+      return null;
+    }
+
+    if (!position.open) {
+      await session.abortTransaction();
+      session.endSession();
+      console.error(`Position has been closed already`);
+      return null;
+    }
+
+    const price = await getTickerPrice(position.ticker);
+    if (!price) {
+      await session.abortTransaction();
+      session.endSession();
+      console.error('Unable to retrieve stock price.');
+      throw new Error('Unable to retrieve stock price.');
+    }
+
+    let profitOrLoss;
+
+    profitOrLoss =
+      position.direction === 'long'
+        ? (price - position.averageCost) * position.totalShares
+        : (position.averageCost - price) * position.totalShares;
+
+    position.open = false;
+    position.profitOrLoss = profitOrLoss;
+    position.closePrice = price;
+    position.closedAt = Date.now();
+    await position.save({ session });
+    // Update the user's balance
+
+    await User.findByIdAndUpdate(
+      position.userId,
+      {
+        $inc: { [`accountBalance`]: +(position.initialCapital + profitOrLoss) },
+      },
+      { validateBeforeSave: false, new: true, session }
+    );
+
+    // Record the transaction
+    const newTransaction = await Transaction({
+      userId: position.userId,
+      action: 'sell',
+      ticker: position.ticker,
+      amountUSD: profitOrLoss + position.initialCapital,
+      shares: position.totalShares,
+      memo: position._id,
+    });
+    await newTransaction.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+
+    return position;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Error closing position:', error);
+    throw new Error('Error closing position');
+  }
+};
+exports.cronClosePosition = cronClosePosition;
+
+const sumOpenEquity = async (userId) => {
+  // Fetch all open positions for the user
+  const openPositions = await Position.find({ userId: userId, open: true });
+
+  let totalEquity = 0;
+
+  for (const position of openPositions) {
+    const currentPrice = await getTickerPrice(position.ticker);
+
+    if (position.direction === 'long') {
+      // For long positions: Equity = (current ticker price * total shares) - loan
+      totalEquity += currentPrice * position.totalShares - position.loan;
+    } else {
+      // For short positions: Equity = (short sell price * total shares) + (short sell price - current ticker price) * total shares - loan
+      totalEquity +=
+        position.averageCost * position.totalShares +
+        (position.averageCost - currentPrice) * position.totalShares -
+        position.loan;
+    }
+  }
+  return totalEquity;
+};
+exports.sumOpenEquity = sumOpenEquity;
+
+const sumProfitOrLoss = async (userId) => {
+  const result = await Position.aggregate([
+    { $match: { userId: userId } },
+    { $group: { _id: null, totalProfitOrLoss: { $sum: '$profitOrLoss' } } },
+  ]);
+  const total = result[0] ? result[0].totalProfitOrLoss : 0;
+  return total;
+};
+exports.sumProfitOrLoss = sumProfitOrLoss;
+/////////////////////
+
+exports.getAiPositionLimit = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+  const user = await User.findById(userId);
+
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+  let initialCount = user.isVerified ? 2 : 1;
+
+  const { isSubscribed } = await fetchUserSubscriptionStatus(userId);
+
+  initialCount = isSubscribed ? initialCount + 3 : initialCount;
+  // Counting AI positions that the user has opened today
+  const todayAiPositionsCount = await aiPositionsCount(userId);
+
+  // Calculating remaining AI position limit for the day
+  const remainingAiPositions = initialCount - todayAiPositionsCount;
+  const remainingTime = getRemainingTimeUntilReset();
+  res.status(200).json({
+    status: 'success',
+    data: {
+      dailyLimit: initialCount,
+      used: todayAiPositionsCount,
+      remaining: remainingAiPositions,
+      remainingTime,
+    },
+  });
+});
 
 exports.createPosition = catchAsync(async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -385,156 +566,9 @@ exports.createPosition = catchAsync(async (req, res, next) => {
   }
 });
 
-exports.cronCreatePosition = async (orderDetails) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const {
-      _id,
-      userId,
-      ticker,
-      direction,
-      marginRatio,
-      initialCapital,
-      orderCloseAtPrice,
-    } = orderDetails;
-
-    // Calculate the stock price and total shares
-    const price = await getTickerPrice(ticker, direction);
-
-    if (!price) {
-      throw new Error('Unable to retrieve stock price.');
-    }
-
-    // Calculate effective amount with margin
-    const effectiveAmount = initialCapital * marginRatio;
-    const totalShares = effectiveAmount / price;
-
-    const position = await Position.create(
-      [
-        {
-          userId,
-          ticker,
-          direction,
-          marginRatio,
-          totalShares,
-          initialCapital,
-          loan: effectiveAmount - initialCapital,
-          averageCost: price,
-          orderCloseAtPrice,
-        },
-      ],
-      { session }
-    );
-
-    await Transaction.create(
-      [
-        {
-          userId,
-          action: 'buy',
-          ticker,
-          amountUSD: initialCapital,
-          shares: totalShares,
-          memo: position._id,
-        },
-      ],
-      { session }
-    );
-
-    await Order.findByIdAndUpdate(
-      { _id },
-      { orderStatus: 'filled' },
-      {
-        session,
-      }
-    );
-
-    await session.commitTransaction();
-    session.endSession();
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error(`Error creating position for order:` + error);
-  }
-};
-
-const cronClosePosition = async (positionId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const position = await Position.findById(positionId).session(session);
-    if (!position) {
-      await session.abortTransaction();
-      session.endSession();
-      console.error(`Position with ID ${positionId} not found.`);
-      return null;
-    }
-
-    if (!position.open) {
-      await session.abortTransaction();
-      session.endSession();
-      console.error(`Position has been closed already`);
-      return null;
-    }
-
-    const price = await getTickerPrice(position.ticker);
-    if (!price) {
-      await session.abortTransaction();
-      session.endSession();
-      console.error('Unable to retrieve stock price.');
-      throw new Error('Unable to retrieve stock price.');
-    }
-
-    let profitOrLoss;
-
-    profitOrLoss =
-      position.direction === 'long'
-        ? (price - position.averageCost) * position.totalShares
-        : (position.averageCost - price) * position.totalShares;
-
-    position.open = false;
-    position.profitOrLoss = profitOrLoss;
-    position.closePrice = price;
-    position.closedAt = Date.now();
-    await position.save({ session });
-    // Update the user's balance
-
-    await User.findByIdAndUpdate(
-      position.userId,
-      {
-        $inc: { [`accountBalance`]: +(position.initialCapital + profitOrLoss) },
-      },
-      { validateBeforeSave: false, new: true, session }
-    );
-
-    // Record the transaction
-    const newTransaction = await Transaction({
-      userId: position.userId,
-      action: 'sell',
-      ticker: position.ticker,
-      amountUSD: profitOrLoss + position.initialCapital,
-      shares: position.totalShares,
-      memo: position._id,
-    });
-    await newTransaction.save({ session });
-    await session.commitTransaction();
-    session.endSession();
-
-    return position;
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error('Error closing position:', error);
-    throw new Error('Error closing position');
-  }
-};
-exports.cronClosePosition = cronClosePosition;
-
 exports.closePosition = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
-  const positionId = req.params.id;
+  const positionId = req.params.positionId;
   const marketStatus = await getMarketStatus();
 
   try {
@@ -590,12 +624,21 @@ exports.getPosition = catchAsync(async (req, res, next) => {
   });
 });
 exports.getAllPositions = catchAsync(async (req, res, next) => {
-  const userId = req.user._id;
+  let query;
 
-  const baseQuery =
-    req.user.role === 'Admin' ? Position.find({}) : Position.find({ userId });
+  if (req.user.role === 'Admin') {
+    // Find IDs of all demo accounts
+    const demoUsers = await User.find({ isDemo: true }).select('_id');
+    const demoUserIds = demoUsers.map((user) => user._id);
 
-  const features = new APIFeatures(baseQuery, req.query)
+    // Exclude transactions belonging to demo accounts
+    query = Position.find({ userId: { $nin: demoUserIds } });
+  } else {
+    // For non-admin users, only return their own transactions
+    query = Position.find({ userId: req.user._id });
+  }
+
+  const features = new APIFeatures(query, req.query)
     .filter()
     .sort()
     .field()
@@ -610,14 +653,8 @@ exports.getAllPositions = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.sumProfitOrLoss = catchAsync(async (req, res, next) => {
-  const userId = req.user._id;
-
-  const result = await Position.aggregate([
-    { $match: { userId: userId } },
-    { $group: { _id: null, totalProfitOrLoss: { $sum: '$profitOrLoss' } } },
-  ]);
-  const total = result[0] ? result[0].totalProfitOrLoss : 0;
+exports.totalProfitOrLoss = catchAsync(async (req, res, next) => {
+  const total = await sumProfitOrLoss(req.user._id);
 
   res.status(200).json({
     status: 'success',
@@ -625,28 +662,8 @@ exports.sumProfitOrLoss = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.sumOpenEquity = catchAsync(async (req, res, next) => {
-  const userId = req.user._id;
-
-  // Fetch all open positions for the user
-  const openPositions = await Position.find({ userId: userId, open: true });
-
-  let totalEquity = 0;
-
-  for (const position of openPositions) {
-    const currentPrice = await getTickerPrice(position.ticker);
-
-    if (position.direction === 'long') {
-      // For long positions: Equity = (current ticker price * total shares) - loan
-      totalEquity += currentPrice * position.totalShares - position.loan;
-    } else {
-      // For short positions: Equity = (short sell price * total shares) + (short sell price - current ticker price) * total shares - loan
-      totalEquity +=
-        position.averageCost * position.totalShares +
-        (position.averageCost - currentPrice) * position.totalShares -
-        position.loan;
-    }
-  }
+exports.totalOpenEquity = catchAsync(async (req, res, next) => {
+  const totalEquity = await sumOpenEquity(req.user._id);
 
   res.status(200).json({
     status: 'success',
@@ -723,4 +740,21 @@ exports.deletePosition = catchAsync(async (req, res, next) => {
     status: 'success',
     data: null,
   });
+});
+
+exports.closePositionImmediately = catchAsync(async (req, res, next) => {
+  const positionId = req.params.positionId;
+  const position = await Position.findOne({
+    _id: positionId,
+    open: true,
+  });
+  if (!position) {
+    return next(new AppError('Open position not found', 404));
+  }
+
+  const closedPosition = await cronClosePosition(positionId);
+
+  res
+    .status(200)
+    .json({ message: 'Position closed', data: { closedPosition } });
 });

@@ -2,6 +2,10 @@ const User = require('../models/userModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const IpLogController = require('../controllers/ipLogController');
+const {
+  sumOpenEquity,
+  sumProfitOrLoss,
+} = require('../controllers/positionController');
 const speakeasy = require('speakeasy');
 
 function filterUserData(userData) {
@@ -67,17 +71,31 @@ const filterUserUpdateData = (body) => {
 // Admin-only user functions
 // ------------------------------
 
-// Get all users
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find({ isDemo: false })
     .populate('referrer')
     .sort({ createdAt: -1 });
 
+  // Use Promise.all to handle the asynchronous operations for each user
+  const usersWithCalculations = await Promise.all(
+    users.map(async (user) => {
+      const openEquity = await sumOpenEquity(user._id);
+      const profitOrLoss = await sumProfitOrLoss(user._id);
+
+      // Return a new object with the additional properties
+      return {
+        ...user.toObject(), // Convert Mongoose document to plain JavaScript object
+        sumOpenEquity: openEquity,
+        sumProfitOrLoss: profitOrLoss,
+      };
+    })
+  );
+
   res.status(200).json({
     status: 'success',
-    results: users.length,
+    results: usersWithCalculations.length,
     data: {
-      users,
+      users: usersWithCalculations,
     },
   });
 });
@@ -86,23 +104,38 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
 exports.getUser = catchAsync(async (req, res, next) => {
   const userId = req.params.userId;
 
-  const user = await User.findById(userId).populate('referrer');
-  if (!user) {
-    return next(
-      new AppError('No user found with ID: ' + req.params.userId, 404)
-    );
+  const userDoc = await User.findById(userId).populate('referrer');
+
+  if (!userDoc) {
+    return next(new AppError('No user found with ID: ' + userId, 404));
   }
+
+  // Convert the Mongoose document to a JavaScript object
+  const user = userDoc.toObject();
+
+  // Add the new properties to the plain JavaScript object
+  user.openEquity = await sumOpenEquity(user._id);
+  user.profitOrLoss = await sumProfitOrLoss(user._id);
 
   res.status(200).json({
     status: 'success',
     data: {
-      user,
+      user, // Now this object includes the additional properties
     },
   });
 });
 
 // Update a user by ID
 exports.updateUser = catchAsync(async (req, res, next) => {
+  if (req.body.referrer) {
+    const referrerUser = await User.findById(req.body.referrer);
+    if (!referrerUser) {
+      return next(
+        new AppError('No user found with referrer ID: ' + referrer, 404)
+      );
+    }
+  }
+
   const user = await User.findByIdAndUpdate(req.params.userId, req.body, {
     new: true,
     runValidators: true,
@@ -122,6 +155,32 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.updateUserBalance = catchAsync(async (req, res, next) => {
+  const amount = +req.body.amount;
+  const userId = req.params.userId;
+  const user = await User.findById(req.params.userId);
+  if (!user) {
+    return next(
+      new AppError('No user found with ID: ' + req.params.userId, 404)
+    );
+  }
+  if (!amount) {
+    return next(new AppError('Invalid amount ', 404));
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { accountBalance: amount } },
+    { validateBeforeSave: false, new: true }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      updatedUser,
+    },
+  });
+});
 // ------------------------------
 // User account management functions
 // ------------------------------

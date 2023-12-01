@@ -54,8 +54,13 @@ app.use(cookieParser());
 app.use('/api/v1/users', limiter.general, userRouter);
 app.use('/api/v1/ipn', limiter.ipn, ipnRouter);
 app.use('/api/v1/stocks', limiter.general, stockRouter);
-app.use('/api/v1/positions', limiter.general, positionRouter);
-app.use('/api/v1/orders', limiter.general, orderRouter);
+app.use(
+  '/api/v1/positions',
+  limiter.general,
+  authController.protect,
+  positionRouter
+);
+app.use('/api/v1/orders', limiter.general, authController.protect, orderRouter);
 app.use(
   '/api/v1/admin',
   limiter.general,
@@ -65,10 +70,10 @@ app.use(
 );
 
 // Update and Intervals
-updatesAndIntervals();
+// updatesAndIntervals();
 
 // Initialize the cron jobs
-initializeCronJobs();
+// initializeCronJobs();
 
 // Catch unhandled routes
 app.all('*', (req, res, next) => {
