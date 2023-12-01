@@ -70,10 +70,10 @@ app.use(
 );
 
 // Update and Intervals
-// updatesAndIntervals();
-
-// Initialize the cron jobs
-// initializeCronJobs();
+if (process.env.LOCALLY !== 'locally') {
+  updatesAndIntervals();
+  initializeCronJobs();
+}
 
 // Catch unhandled routes
 app.all('*', (req, res, next) => {
