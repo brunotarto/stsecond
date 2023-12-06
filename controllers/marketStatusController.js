@@ -3,6 +3,7 @@ const axios = require('axios');
 const StockPrice = require('../models/stockPriceModel');
 const MarketStatus = require('../models/marketStatusModel');
 const catchAsync = require('../utils/catchAsync');
+const Default = require('../models/defaultModel');
 
 exports.updateMarketStatus = catchAsync(async () => {
   const response = await axios.get(
@@ -36,10 +37,12 @@ exports.getMarketInfo = catchAsync(async (req, res, next) => {
 });
 
 exports.getGrossMargin = catchAsync(async (req, res, next) => {
+  const defaults = await Default.findOne();
+
   res.status(200).json({
     status: 'success',
     data: {
-      grossMargin: +process.env.GROSS_MARGIN,
+      grossMargin: defaults.grossMargin,
     },
   });
 });

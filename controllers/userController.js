@@ -20,6 +20,7 @@ function filterUserData(userData) {
     referralCode: userData.referralCode,
     otp_enabled: userData.otp_enabled,
     marginRatios: userData.marginRatios,
+    isVerified: userData.isVerified,
   };
 
   Object.keys(filteredUser).forEach((key) => {
@@ -179,6 +180,21 @@ exports.updateUserBalance = catchAsync(async (req, res, next) => {
     data: {
       updatedUser,
     },
+  });
+});
+
+exports.updateUserPassword = catchAsync(async (req, res, next) => {
+  // Get user from the collection
+  const user = await User.findById(req.params.userId);
+
+  user.password = req.body.newPassword;
+  user.passwordConfirm = req.body.newPasswordConfirm;
+  await user.save();
+
+  // Send response
+  res.status(200).json({
+    status: 'success',
+    message: 'Password updated successfully.',
   });
 });
 // ------------------------------

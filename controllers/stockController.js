@@ -26,7 +26,7 @@ exports.createStock = catchAsync(async (req, res, next) => {
 });
 
 exports.updateStock = catchAsync(async (req, res, next) => {
-  const stock = await Stock.findByIdAndUpdate(req.params.id, req.body, {
+  const stock = await Stock.findByIdAndUpdate(req.params.stockId, req.body, {
     new: true,
     runValidators: true,
   });
@@ -44,7 +44,7 @@ exports.updateStock = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteStock = catchAsync(async (req, res, next) => {
-  const stock = await Stock.findByIdAndDelete(req.params.id);
+  const stock = await Stock.findByIdAndDelete(req.params.stockId);
 
   if (!stock) {
     return next(new AppError('No stock found with that ID', 404));

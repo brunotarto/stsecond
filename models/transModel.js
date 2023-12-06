@@ -38,7 +38,7 @@ const transactionSchema = new mongoose.Schema(
     },
     cryptoType: {
       type: String,
-      enum: ['BTC', 'ETH', 'BNB', 'TRX', 'USD'],
+      enum: ['BTC', 'ETH', 'BNB', 'TRX', 'USD', 'BANK'],
       required: function () {
         return ['deposit', 'withdraw'].includes(this.action);
       },

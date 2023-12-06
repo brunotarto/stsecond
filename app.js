@@ -4,7 +4,7 @@ const cors = require('cors');
 
 const userRouter = require('./routes/userRoutes');
 const ipnRouter = require('./routes/ipnRoutes');
-const stockRouter = require('./routes/stockRoutes');
+const marketRouter = require('./routes/marketRoutes');
 const positionRouter = require('./routes/positionRoutes');
 const orderRouter = require('./routes/orderRoutes');
 const adminRouter = require('./routes/adminRoutes');
@@ -28,11 +28,7 @@ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 app.use(express.json());
 
 const corsOptions = {
-  origin: [
-    'http://localhost:4200',
-    'https://xomble.com',
-    'https://www.xomble.com',
-  ], // or the specific origin you want to allow
+  origin: '*', // or the specific origin you want to allow
   credentials: true, // to allow cookies and headers to be sent along with the request
 };
 
@@ -53,7 +49,7 @@ app.use(cookieParser());
 // Mount plan and user routers
 app.use('/api/v1/users', limiter.general, userRouter);
 app.use('/api/v1/ipn', limiter.ipn, ipnRouter);
-app.use('/api/v1/stocks', limiter.general, stockRouter);
+app.use('/api/v1/market', limiter.general, marketRouter);
 app.use(
   '/api/v1/positions',
   limiter.general,
@@ -69,9 +65,9 @@ app.use(
   adminRouter
 );
 
+updatesAndIntervals();
 // Update and Intervals
 if (process.env.LOCALLY !== 'locally') {
-  updatesAndIntervals();
   initializeCronJobs();
 }
 

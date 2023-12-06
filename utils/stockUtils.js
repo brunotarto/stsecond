@@ -1,3 +1,4 @@
+const Default = require('../models/defaultModel');
 const StockPrice = require('../models/stockPriceModel');
 const AppError = require('../utils/appError'); // Error wrapper
 
@@ -10,9 +11,10 @@ const getTickerPrice = async (ticker, direction = null) => {
     .limit(1)
     .select('price');
   if (direction) {
+    const defaults = await Default.findOne();
     return direction === 'long'
-      ? price[0]?.price + price[0]?.price * +process.env.GROSS_MARGIN
-      : price[0]?.price - price[0]?.price * +process.env.GROSS_MARGIN;
+      ? price[0]?.price + price[0]?.price * defaults.grossMargin
+      : price[0]?.price - price[0]?.price * defaults.grossMargin;
   }
   return price[0]?.price;
 };

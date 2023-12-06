@@ -7,7 +7,7 @@ const withdrawController = require('./../controllers/withdrawController');
 const documentController = require('./../controllers/documentController');
 const subscriptionController = require('../controllers/subscriptionController');
 const referralController = require('../controllers/referralController');
-
+const bankController = require('../controllers/bankController');
 const limiter = require('../utils/limiter');
 
 const router = express.Router();
@@ -26,6 +26,10 @@ router.post('/otp/disable', authController.protect, authController.disable2FA);
 router.get('/account', authController.protect, userController.getAccount);
 router.patch('/account', authController.protect, userController.updateUserDetails);
 router.patch('/account/update-password', authController.protect, authController.restrictToReal, userController.updatePassword);
+
+//Bank
+router.get('/bank', authController.protect, bankController.getBank);
+router.patch('/bank', authController.protect, bankController.updateBank);
 
 // Get subscription status
 router.get('/subscription-status', authController.protect, subscriptionController.getUserSubscriptionStatus);

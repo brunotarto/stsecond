@@ -58,7 +58,7 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
       return next(new AppError('User not found', 404));
     }
 
-    if (!['ETH', 'BTC', 'TRX', 'BNB'].includes(paymentMethod)) {
+    if (!['ETH', 'BTC', 'TRX', 'BNB', 'BANK'].includes(paymentMethod)) {
       await session.abortTransaction();
       session.endSession();
       return next(
@@ -66,7 +66,7 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
       );
     }
 
-    if (!['BUSD', 'USDT', 'USDC'].includes(token) && token) {
+    if (!['BUSD', 'USDT', 'USDC', 'USD'].includes(token) && token) {
       await session.abortTransaction();
       session.endSession();
       return next(
@@ -109,7 +109,7 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
       return next(new AppError('Minimum withdraw amount is 25', 400));
     }
 
-    if (!user.withdrawalAddresses[paymentMethod]) {
+    if (paymentMethod !== 'BANK' && !user.withdrawalAddresses[paymentMethod]) {
       await session.abortTransaction();
       session.endSession();
       return next(new AppError(`${paymentMethod} address is undefined`, 400));
@@ -145,28 +145,30 @@ exports.createWithdrawal = catchAsync(async (req, res, next) => {
     await newTransaction.save({ session });
     const transactionId = newTransaction._id;
 
-    // Send to the gateway
-    const params = {
-      network: paymentMethod,
-      token: token,
-      address: user.withdrawalAddresses[paymentMethod],
-      statusURL: process.env.IPN_HANDLER,
-      label: transactionId,
-      amount: cryptoAmount,
-    };
+    if (paymentMethod !== 'BANK') {
+      // Send to the gateway
+      const params = {
+        network: paymentMethod,
+        token: token,
+        address: user.withdrawalAddresses[paymentMethod],
+        statusURL: process.env.IPN_HANDLER,
+        label: transactionId,
+        amount: cryptoAmount,
+      };
 
-    // delete undefined params (token)
-    Object.keys(params).forEach((key) => {
-      if (params[key] === undefined) {
-        delete params[key];
+      // delete undefined params (token)
+      Object.keys(params).forEach((key) => {
+        if (params[key] === undefined) {
+          delete params[key];
+        }
+      });
+
+      const gatewayResponse = await GatewayHandler('send', params);
+
+      // We might want to validate the response here
+      if (!gatewayResponse || !gatewayResponse.result) {
+        throw new Error('Failed to initiate gateway request.');
       }
-    });
-
-    const gatewayResponse = await GatewayHandler('send', params);
-
-    // We might want to validate the response here
-    if (!gatewayResponse || !gatewayResponse.result) {
-      throw new Error('Failed to initiate gateway request.');
     }
 
     // Commit the transaction

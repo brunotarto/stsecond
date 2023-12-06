@@ -48,12 +48,7 @@ exports.createDefault = catchAsync(async (req, res, next) => {
 });
 
 exports.updateDefault = catchAsync(async (req, res, next) => {
-  const data = {
-    defaultProfitPercentage: req.body.defaultProfitPercentage,
-    defaultLossPercentage: req.body.defaultLossPercentage,
-    defaultProfitLossRatio: req.body.defaultProfitLossRatio,
-    defaultMarginRatios: req.body.defaultMarginRatios,
-  };
+  const data = req.body;
 
   // Remove undefined keys
   Object.keys(data).forEach((key) => {

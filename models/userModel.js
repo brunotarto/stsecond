@@ -86,10 +86,22 @@ const userSchema = new mongoose.Schema(
     profitPercentage: {
       type: Number,
       default: null, // will set this value programmatically
+      validate: {
+        validator: function (value) {
+          return value === '' || value >= 0;
+        },
+        message: 'Invalid value for profitPercentage',
+      },
     },
     lossPercentage: {
       type: Number,
       default: null, // will set this value programmatically
+      validate: {
+        validator: function (value) {
+          return value === '' || value <= 0;
+        },
+        message: 'Invalid value for lossPercentage',
+      },
     },
     profitLossRatio: {
       type: Number,
@@ -224,9 +236,9 @@ userSchema.methods.applyDefaultValues = async function () {
   if (
     !this.marginRatios ||
     this.marginRatios.length === 0 ||
-    marginRatios[0] === null ||
-    marginRatios[0] === undefined ||
-    marginRatios[0] === ''
+    this.marginRatios[0] === null ||
+    this.marginRatios[0] === undefined ||
+    this.marginRatios[0] === ''
   ) {
     this.marginRatios = defaults.defaultMarginRatios;
   }

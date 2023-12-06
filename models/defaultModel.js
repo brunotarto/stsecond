@@ -16,6 +16,10 @@ const defaultsSchema = new mongoose.Schema({
     type: Array,
     required: true,
   },
+  grossMargin: {
+    type: Number,
+    required: true,
+  },
 });
 
 const Default = mongoose.model('Defaults', defaultsSchema);

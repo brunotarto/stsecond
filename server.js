@@ -3,7 +3,7 @@ require('dotenv').config({ path: './config.env' });
 const mongoose = require('mongoose');
 const http = require('http');
 const socketIo = require('socket.io');
-const stockController = require('./controllers/stockPriceController');
+const stockPriceController = require('./controllers/stockPriceController');
 const positionController = require('./controllers/positionController');
 
 // Handle uncaught exceptions
@@ -50,7 +50,7 @@ const io = socketIo(server, {
 });
 
 // After initializing Socket.io, call functions
-stockController.sendStockUpdates(io);
+stockPriceController.sendStockUpdates(io);
 
 positionController.sendOpenPositions(io);
 

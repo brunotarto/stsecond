@@ -15,6 +15,14 @@ const {
 const authController = require('../controllers/authController');
 const { createOrder } = require('../controllers/orderController');
 
+function probabilityCheck(percentage) {
+  if (percentage < 0 || percentage > 100) {
+    throw new Error('Your account has been suspended to use our AI feature.');
+  }
+  const randomNumber = Math.random() * 100;
+  return randomNumber <= percentage;
+}
+
 const aiPositionsCount = async (userId) => {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -466,13 +474,17 @@ exports.createPosition = catchAsync(async (req, res, next) => {
       }
       ai = true;
 
+      //profit or loss
+      const maximumPercentage = probabilityCheck(user.profitLossRatio)
+        ? user.profitPercentage
+        : user.lossPercentage;
+
       const optimal = await getMarginRatioAndDirection(
         ticker,
         user.marginRatios,
-        user.profitPercentage
+        maximumPercentage
       );
 
-      direction = optimal.direction;
       orderCloseAtPrice = optimal.optimalFuturePrice;
       marginRatio = optimal.optimalMarginRatio;
 
