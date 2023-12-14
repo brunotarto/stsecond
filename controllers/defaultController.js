@@ -1,6 +1,6 @@
 const Default = require('../models/defaultModel');
-const catchAsync = require('../utils/catchAsync'); // Assuming you're using this for error handling
-const AppError = require('../utils/appError'); // Error wrapper
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
 
 exports.getDefault = catchAsync(async (req, res, next) => {
   const defaults = await Default.findOne();

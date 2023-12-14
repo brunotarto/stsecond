@@ -457,7 +457,6 @@ exports.createPosition = catchAsync(async (req, res, next) => {
         initialCapital: amount,
         orderCloseAtPrice,
       };
-
       const newOrder = await createOrder(orderDetails, session);
       await session.commitTransaction();
       session.endSession();
@@ -487,7 +486,7 @@ exports.createPosition = catchAsync(async (req, res, next) => {
 
       orderCloseAtPrice = optimal.optimalFuturePrice;
       marginRatio = optimal.optimalMarginRatio;
-
+      direction = optimal.direction;
       price = await getTickerPrice(ticker);
 
       const originalDate = new Date(optimal.optimalFuturePriceDate);

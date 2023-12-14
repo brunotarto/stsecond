@@ -29,6 +29,7 @@ const handleDuplicateErrorDB = (err) => {
 
 // Send error response in development environment
 const sendErrorDev = (err, res) => {
+  console.log(err);
   res.status(err.statusCode).json({
     status: err.status,
     message: err.message,

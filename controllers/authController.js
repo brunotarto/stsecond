@@ -55,16 +55,47 @@ exports.signup = catchAsync(async (req, res, next) => {
       referrer: referrer ? referrer._id : undefined,
     });
 
+    newUser.emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    newUser.emailVerified = false;
+    await newUser.save({ validateBeforeSave: false });
+    const verificationUrl = `https://www.${process.env.FUNCTION}.com/verify-email/${newUser.emailVerificationToken}`;
+
     await sendTemplatedEmail(
       'welcome',
-      'Welcome to ' + process.env.FUNCTION,
-      req.body
+      'Verify Your Email to Complete Your Xomble Registration' +
+        process.env.FUNCTION,
+      {
+        verificationUrl,
+      }
     );
 
     createSendToken(newUser, 201, res);
   } catch (error) {
     console.log(error);
   }
+});
+
+exports.verifyEmail = catchAsync(async (req, res, next) => {
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerified: false,
+  });
+
+  if (!user) {
+    return next(new AppError('Token is invalid or has expired', 400));
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationToken = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  // Instead of just sending a success message, also log the user in
+  createSendToken(user, 200, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -93,8 +124,12 @@ exports.login = catchAsync(async (req, res, next) => {
 
   if (user.restrictedActions && user.restrictedActions.includes('access')) {
     return next(
-      new AppError('Something went wrong please try again later! 500', 403)
+      new AppError('Something went wrong please try again later! 500', 405)
     );
+  }
+
+  if (!user.emailVerified && user.role !== 'Admin') {
+    return next(new AppError('Please verify your email to login', 403));
   }
 
   if (user.otp_enabled) {
@@ -235,11 +270,14 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   const resetURL = `https://www.${process.env.FUNCTION.toLowerCase()}.com/public/forget-password?token=${resetToken}`;
-
+  const websiteURL = `https://www.${process.env.FUNCTION.toLowerCase()}.com`;
   user.resetLink = resetURL;
 
   try {
-    await sendTemplatedEmail('passwordReset', 'Reset Password', user);
+    await sendTemplatedEmail('passwordReset', 'Reset Password', {
+      resetURL,
+      websiteURL,
+    });
 
     res.status(200).json({
       status: 'success',
@@ -389,7 +427,6 @@ exports.disable2FA = catchAsync(async (req, res, next) => {
 
 exports.restrictToReal = (req, res, next) => {
   // roles is an array of allowed roles, e.g. ['admin', 'user']
-
   if (req.user.isDemo) {
     return next(
       new AppError('This action is not available for demo accounts.', 403)

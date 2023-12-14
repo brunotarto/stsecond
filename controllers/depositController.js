@@ -52,7 +52,6 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
 
     await newTransaction.save({ session });
 
-    // Commit the transaction
     await session.commitTransaction();
     session.endSession();
 
@@ -68,3 +67,29 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
     return next(new AppError('Error creating deposit transaction', 400));
   }
 });
+
+const rewardUser = async (userId, amount, session, bountyId = '') => {
+  try {
+    // Update user account balance and set rewarded flag to true
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        $inc: { accountBalance: amount },
+      },
+      { validateBeforeSave: false, new: true, session }
+    );
+
+    // Create and save the user transaction
+    const userTransaction = new Transaction({
+      userId,
+      action: 'reward',
+      amountUSD: amount,
+      memo: bountyId,
+    });
+    await userTransaction.save({ session });
+  } catch (error) {
+    // Handle error
+    throw new AppError('Error in rewarding user', 500);
+  }
+};
+exports.rewardUser = rewardUser;

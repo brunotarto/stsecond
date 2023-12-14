@@ -20,18 +20,11 @@ async function getReferrals(userId) {
         amountUSD: +process.env.MONTHLY_SUBSCRIPTION_FEE,
       });
 
-      const deposited = !!(await Transaction.findOne({
-        userId: referral._id,
-        action: 'deposit',
-        amountUSD: { $gt: 1000 },
-      }));
-
       return {
         email: maskEmail(referral.email),
         isVerified: referral.isVerified,
         purchaseAnnuallyCount,
         purchaseMonthlyCount,
-        deposited,
       };
     })
   );
@@ -57,15 +50,8 @@ async function getReferralsAdmin(userId) {
       const deposited = !!(await Transaction.findOne({
         userId: referral._id,
         action: 'deposit',
-        amountUSD: { $gt: 1 },
+        amountUSD: { $gte: 1 },
       }));
-
-      const depositedOver = !!(await Transaction.findOne({
-        userId: referral._id,
-        action: 'deposit',
-        amountUSD: { $gt: 1000 },
-      }));
-
       return {
         _id: referral._id,
         email: referral.email,
@@ -73,7 +59,6 @@ async function getReferralsAdmin(userId) {
         purchaseAnnuallyCount,
         purchaseMonthlyCount,
         deposited,
-        depositedOver,
       };
     })
   );

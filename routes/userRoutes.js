@@ -1,4 +1,5 @@
 const express = require('express');
+const limiter = require('../utils/limiter');
 const userController = require('./../controllers/userController');
 const authController = require('./../controllers/authController');
 const transController = require('./../controllers/transController');
@@ -8,13 +9,16 @@ const documentController = require('./../controllers/documentController');
 const subscriptionController = require('../controllers/subscriptionController');
 const referralController = require('../controllers/referralController');
 const bankController = require('../controllers/bankController');
-const limiter = require('../utils/limiter');
+const adminBankController = require('../controllers/adminBankController');
+const rewardController = require('../controllers/rewardController');
+const bountyController = require('../controllers/bountyController');
 
 const router = express.Router();
 
 // Signup and login routes with rate limiting middleware
 router.post('/signup', limiter.signup, authController.signup);
 router.post('/login', limiter.login, authController.login);
+router.get('/verify-email/:token', authController.verifyEmail);
 router.post('/forgot-password', authController.forgotPassword);
 router.patch('/reset-password', authController.resetPassword);
 
@@ -27,7 +31,12 @@ router.get('/account', authController.protect, userController.getAccount);
 router.patch('/account', authController.protect, userController.updateUserDetails);
 router.patch('/account/update-password', authController.protect, authController.restrictToReal, userController.updatePassword);
 
+//rewards
+router.get('/rewards', authController.protect, rewardController.getAllRewardsUser);
+router.post('/rewards', authController.protect, authController.restrictToReal, bountyController.submitBountyRequest);
+
 //Bank
+router.get('/website-bank', authController.protect, adminBankController.getAdminBankUser);
 router.get('/bank', authController.protect, bankController.getBank);
 router.patch('/bank', authController.protect, bankController.updateBank);
 
@@ -45,6 +54,7 @@ router.get('/transactions/:transId', authController.protect, transController.get
 router.get('/addresses/:network', authController.protect, authController.restrictToReal, addressController.generateAddress);
 
 // request withdrawal
+router.get('/withdraw-wire-status', authController.protect, adminBankController.getAdminBankWithdrawStatus);
 router.post('/withdraw', authController.protect, authController.restrictToReal, withdrawController.createWithdrawal);
 
 router.post(

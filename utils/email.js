@@ -41,7 +41,9 @@ const getEmailTemplate = async (templateName, data) => {
     );
     let html = await fs.readFile(templatePath, 'utf8');
 
-    data.path = process.env.FUNCTION.toLowerCase() + '.com';
+    data.websiteURL = `https://www.${process.env.FUNCTION.toLowerCase()}.com`;
+    data.emailAssetPath = `https://www.${process.env.FUNCTION.toLowerCase()}.com/assets/img/email/`;
+
     data.title = process.env.FUNCTION;
     // Replace placeholders with data
     for (const key in data) {

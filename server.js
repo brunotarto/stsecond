@@ -32,39 +32,49 @@ async function connectToDatabase() {
   }
 }
 
-// Connect to the database
-connectToDatabase();
+// Define an asynchronous function to start the server
+async function startServer() {
+  try {
+    // Connect to the database
+    await connectToDatabase();
 
-// Import the app module
-const app = require('./app');
+    // Import the app module
+    const app = require('./app');
 
-// Create an HTTP server
-const server = http.createServer(app);
+    // Create an HTTP server
+    const server = http.createServer(app);
 
-// Setup socket.io
-const io = socketIo(server, {
-  cors: {
-    origin: '*', // be more restrictive in production
-    methods: ['GET', 'POST'],
-  },
-});
+    // Setup socket.io
+    const io = socketIo(server, {
+      cors: {
+        origin: '*', // be more restrictive in production
+        methods: ['GET', 'POST'],
+      },
+    });
 
-// After initializing Socket.io, call functions
-stockPriceController.sendStockUpdates(io);
+    // After initializing Socket.io, call functions
+    stockPriceController.sendStockUpdates(io);
+    positionController.sendOpenPositions(io);
 
-positionController.sendOpenPositions(io);
+    // Listen to the server on your specified port
+    const PORT = process.env.PORT || 3000;
+    server.listen(PORT, () => {
+      console.log(`App running on port ${PORT}`);
+    });
 
-// Listen to the server on your specified port
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`App running on port ${PORT}`);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (error) => {
-  console.log(error);
-  console.error('🚩 Unhandled Rejection: ', error.name, error.message);
-  server.close(() => {
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (error) => {
+      console.log(error);
+      console.error('🚩 Unhandled Rejection: ', error.name, error.message);
+      server.close(() => {
+        process.exit(1);
+      });
+    });
+  } catch (error) {
+    console.error('Failed to start the server: ', error);
     process.exit(1);
-  });
-});
+  }
+}
+
+// Start the server
+startServer();

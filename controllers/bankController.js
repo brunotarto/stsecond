@@ -1,6 +1,6 @@
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
-const Bank = require('../models/bankModel');
+const Bank = require('../models/bankAccountModel');
 const Document = require('../models/documentModel');
 
 exports.getBank = catchAsync(async (req, res, next) => {

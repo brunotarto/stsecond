@@ -8,7 +8,7 @@ const { updateMarketStatus } = require('../controllers/marketStatusController');
 const { updateCryptoPrices } = require('../controllers/cryptoPriceController');
 
 module.exports = function () {
-  setInterval(updateStockAndPricesCache, 30 * 1000);
+  setInterval(updateStockAndPricesCache, 15 * 1000);
   updateStockAndPricesCache();
   if (process.env.LOCALLY !== 'locally') {
     // update market status

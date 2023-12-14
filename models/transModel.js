@@ -17,6 +17,7 @@ const transactionSchema = new mongoose.Schema(
         'purchase',
         'order',
         'order-cancel',
+        'reward',
       ],
       required: [true, 'A transaction must have an action.'],
     },

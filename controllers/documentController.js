@@ -70,7 +70,6 @@ exports.verifyDocument = catchAsync(async (req, res, next) => {
 
     // Load the passport image or PDF file
     const inputSource = mindeeClient.docFromPath(tempPath);
-
     // Extract the ID document information
     const apiResponse = await mindeeClient.parse(
       mindee.product.PassportV1,
@@ -141,41 +140,36 @@ exports.createDocument = catchAsync(async (req, res, next) => {
   });
 
   uploadStream.on('finish', async () => {
-    try {
-      const validateData = {
-        givenNames: req.document.givenNames,
-        surname: req.document.surname,
-        birthDate: req.document.birthDate,
-        country: req.document.country,
-        expiryDate: req.document.expiryDate,
-        gender: req.document.gender,
-        idNumber: req.document.idNumber,
-      };
+    const validateData = {
+      givenNames: req.document.givenNames,
+      surname: req.document.surname,
+      birthDate: req.document.birthDate,
+      country: req.document.country,
+      expiryDate: req.document.expiryDate,
+      gender: req.document.gender,
+      idNumber: req.document.idNumber,
+    };
 
-      // Create the document in MongoDB
-      await Document.create({
-        userId: req.user._id,
-        documentPath: documentPath.toString(), // Ensure this is a string
-        ...validateData,
-      });
+    // Create the document in MongoDB
+    await Document.create({
+      userId: req.user._id,
+      documentPath: documentPath.toString(), // Ensure this is a string
+      ...validateData,
+    });
 
-      await User.findByIdAndUpdate(
-        req.user._id,
-        {
-          isVerified: true,
-        },
-        { validateBeforeSave: false, new: true }
-      );
-
-      const data = req.document;
-      // Respond with the verified document data
-      res.status(201).json({
-        status: 'success',
-        data,
-      });
-    } catch (error) {
-      next(new AppError('Error creating document entry', 500));
-    }
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        isVerified: true,
+      },
+      { validateBeforeSave: false, new: true }
+    );
+    const data = req.document;
+    // Respond with the verified document data
+    res.status(201).json({
+      status: 'success',
+      data,
+    });
   });
 });
 
