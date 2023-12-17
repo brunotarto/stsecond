@@ -2,6 +2,7 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const Reward = require('../models/rewardModel');
 const Bounty = require('../models/bountyModel');
+const validationFunctions = require('../utils/validationFunctions');
 
 exports.getAllRewards = catchAsync(async (req, res, next) => {
   const rewards = await Reward.find();
@@ -82,21 +83,36 @@ exports.getAllRewardsUser = catchAsync(async (req, res, next) => {
   // Adding claimed status to each reward
   const rewardsWithClaimStatus = await Promise.all(
     rewards.map(async (reward) => {
+      let eligible = true;
       const bounty = await Bounty.findOne({
         userId: userId,
         rewardId: reward._id,
       });
-      let claimedStatus = false;
+      let insideConditionsStatus = false;
+      let claimedStatus = bounty ? bounty.claimedStatus : false;
 
-      if (bounty && bounty.isClaimed) {
-        claimedStatus = 'claimed';
+      if (reward.insideValidations && reward.insideValidations.length) {
+        insideConditionsStatus = [];
+        for (const validationFunctionName of reward.insideValidations) {
+          const trimmedFunctionName = validationFunctionName.trim();
+          if (validationFunctions[trimmedFunctionName]) {
+            const status = await validationFunctions[trimmedFunctionName](
+              req.user
+            );
+            eligible = eligible && typeof status === 'boolean';
+
+            insideConditionsStatus.push(typeof status === 'boolean');
+          }
+        }
       }
 
-      if (bounty && !bounty.isClaimed) {
-        claimedStatus = 'pending';
-      }
-
-      return { ...reward.toObject(), claimedStatus };
+      return {
+        ...reward.toObject(),
+        claimedStatus,
+        conditionsStatus:
+          insideConditionsStatus || (bounty ? bounty.conditionsStatus : false),
+        eligible,
+      };
     })
   );
 

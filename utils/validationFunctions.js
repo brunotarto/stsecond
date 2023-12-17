@@ -71,11 +71,11 @@ exports.validateVerifyReferralsOver100 = async function (user) {
   return true;
 };
 
-exports.validateSingleDepositBetween10And100 = async function (user) {
+exports.validateSingleDepositBetween25And100 = async function (user) {
   const deposit = await Transaction.countDocuments({
     userId: user._id,
     action: 'deposit',
-    amountUSD: { $gte: 10, $lt: 100 },
+    amountUSD: { $gte: 25, $lt: 100 },
   });
 
   if (deposit === 0) {

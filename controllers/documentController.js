@@ -93,14 +93,17 @@ exports.verifyDocument = catchAsync(async (req, res, next) => {
       return next(new AppError('This document already used ', 400));
     }
 
-    // if (
-    //   process.env.NODE_ENV !== 'development' &&
-    //   new Date(document.inference.prediction.expiryDate.value) < new Date()
-    // ) {
-    //   return next(
-    //     new AppError('Error verifying document, document expired', 400)
-    //   );
-    // } FIX
+    if (
+      process.env.NODE_ENV !== 'development' ||
+      new Date(document.inference.prediction.expiryDate.value) < new Date()
+    ) {
+      return next(
+        new AppError(
+          'Your passport expired, please provide a valid passport.',
+          400
+        )
+      );
+    }
 
     req.document = simplifyPredictions(document.inference.prediction);
 
@@ -108,7 +111,9 @@ exports.verifyDocument = catchAsync(async (req, res, next) => {
       !document.inference.prediction.mrz1.value ||
       !document.inference.prediction.mrz2.value
     ) {
-      return next(new AppError('Error verifying document', 400));
+      return next(
+        new AppError('This document is not a passport or not visible.', 400)
+      );
     }
     next();
   } catch (error) {

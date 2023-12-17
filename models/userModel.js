@@ -152,6 +152,8 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    lastEmailSent: Date,
+    emailResendCooldown: Number,
   },
   { timestamps: true }
 );
@@ -193,7 +195,7 @@ userSchema.methods.createPasswordResetToken = function () {
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
-  this.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 60 minutes validation
+  this.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 minutes validation
   return resetToken;
 };
 

@@ -18,9 +18,10 @@ const router = express.Router();
 // Signup and login routes with rate limiting middleware
 router.post('/signup', limiter.signup, authController.signup);
 router.post('/login', limiter.login, authController.login);
-router.get('/verify-email/:token', authController.verifyEmail);
-router.post('/forgot-password', authController.forgotPassword);
-router.patch('/reset-password', authController.resetPassword);
+router.get('/verify-email/:token', limiter.login, authController.verifyEmail);
+router.post('/resend-verification-email', limiter.login, authController.resendVerificationEmail);
+router.post('/forgot-password', limiter.login, authController.forgotPassword);
+router.patch('/reset-password', limiter.login, authController.resetPassword);
 
 router.post('/otp/generate', authController.protect, authController.generate2FA);
 router.post('/otp/verify', authController.protect, authController.verify2FA);

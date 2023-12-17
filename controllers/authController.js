@@ -35,10 +35,12 @@ const createSendToken = (user, statusCode, res) => {
 
 exports.signup = catchAsync(async (req, res, next) => {
   try {
+    const existingUser = await User.findOne({ email: req.body.email });
+    if (existingUser) {
+      return next(new AppError('User already exists with this email', 400));
+    }
     // Check for a referral code in the request
     const referralCode = req.body.referralCode;
-
-    // Initialize the referrer variable
     let referrer;
 
     if (referralCode) {
@@ -46,43 +48,103 @@ exports.signup = catchAsync(async (req, res, next) => {
       referrer = await User.findOne({ referralCode });
     }
 
-    // Create the new user with the referrer's ID if it exists
-    const newUser = await User.create({
+    // Create a new user object (but don't save yet)
+    const newUser = new User({
       name: req.body.name,
       email: req.body.email,
       password: req.body.password,
       passwordConfirm: req.body.passwordConfirm,
       referrer: referrer ? referrer._id : undefined,
+      emailVerificationToken: crypto.randomBytes(32).toString('hex'),
+      emailVerified: false,
     });
 
-    newUser.emailVerificationToken = crypto.randomBytes(32).toString('hex');
-    newUser.emailVerified = false;
-    await newUser.save({ validateBeforeSave: false });
+    // Save the new user
+    await newUser.save();
+
+    // Generate verification URL
     const verificationUrl = `https://www.${process.env.FUNCTION}.com/verify-email/${newUser.emailVerificationToken}`;
 
+    // Send email with verification link
     await sendTemplatedEmail(
       'welcome',
-      'Verify Your Email to Complete Your Xomble Registration' +
-        process.env.FUNCTION,
-      {
-        verificationUrl,
-      }
+      'Verify Your Email to Complete Your Registration',
+      { email: newUser.email, verificationUrl }
     );
 
-    createSendToken(newUser, 201, res);
+    // Send response without authentication token
+    res.status(201).json({
+      status: 'success',
+      message:
+        'Registration successful! Please check your email to verify your account.',
+    });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    next(
+      new AppError(
+        'An error occurred during registration, please try again.',
+        500
+      )
+    );
   }
 });
 
-exports.verifyEmail = catchAsync(async (req, res, next) => {
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(req.params.token)
-    .digest('hex');
+exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
+  if (typeof req.body.email !== 'string' || req.body.email.trim() === '') {
+    return next(new AppError('Invalid email provided', 400));
+  }
 
+  const user = await User.findOne({ email: req.body.email });
+
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  if (user.emailVerified) {
+    return next(new AppError('Email is already verified', 400));
+  }
+
+  const now = Date.now();
+  const timeSinceLastEmail = now - (user.lastEmailSent || 0);
+  const cooldownPeriod = user.emailResendCooldown || 10000; // 10 seconds for the first attempt
+
+  if (timeSinceLastEmail < cooldownPeriod) {
+    const waitTime = Math.ceil((cooldownPeriod - timeSinceLastEmail) / 1000); // Convert to seconds
+    return next(
+      new AppError(
+        `Please wait ${waitTime} seconds before requesting another email`,
+        429
+      )
+    );
+  }
+
+  // Update cooldown (double it) and lastEmailSent
+  user.emailResendCooldown = cooldownPeriod * 2;
+  user.lastEmailSent = now;
+  await user.save({ validateBeforeSave: false });
+
+  const verificationUrl = `https://www.${process.env.FUNCTION}.com/verify-email/${user.emailVerificationToken}`;
+
+  await sendTemplatedEmail(
+    'welcome',
+    'Verify Your Email to Complete Your Xomble Registration' +
+      process.env.FUNCTION,
+    { email: user.email, verificationUrl }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Verification email resent successfully',
+  });
+});
+
+exports.verifyEmail = catchAsync(async (req, res, next) => {
+  const token = req.params.token;
+  if (typeof token !== 'string' || token.trim() === '') {
+    return next(new AppError('Invalid email provided', 400));
+  }
   const user = await User.findOne({
-    emailVerificationToken: hashedToken,
+    emailVerificationToken: token,
     emailVerified: false,
   });
 
@@ -270,13 +332,12 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   const resetURL = `https://www.${process.env.FUNCTION.toLowerCase()}.com/public/forget-password?token=${resetToken}`;
-  const websiteURL = `https://www.${process.env.FUNCTION.toLowerCase()}.com`;
   user.resetLink = resetURL;
 
   try {
     await sendTemplatedEmail('passwordReset', 'Reset Password', {
+      email: user.email,
       resetURL,
-      websiteURL,
     });
 
     res.status(200).json({

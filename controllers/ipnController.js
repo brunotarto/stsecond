@@ -54,9 +54,19 @@ exports.receive = async (req, res) => {
   //Deposit logic
   if (data['type'] === 'in' && +data['confirmation'] > 0) {
     // Extract userId and planId from the label
-    const [userId] = data['label'];
 
-    // Set paymentMethod to token or currency if token is empty
+    const userId = data['label'];
+    const cryptoType = data['currency'];
+    const txHash = data['txid'];
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(200).send();
+    }
+
+    let amountUSD;
+    let cryptoAmount;
     let paymentMethod;
     if (
       data['token'] === 'BUSD' ||
@@ -64,17 +74,17 @@ exports.receive = async (req, res) => {
       data['token'] === 'USDC'
     ) {
       paymentMethod = data['token'];
+      amountUSD = +data['amount'];
+      cryptoAmount = 0;
     } else {
+      if (data['token']) {
+        return res.status(200).send();
+      }
+      const cryptoUsdPrice = await getCryptoPrice(cryptoType);
       paymentMethod = data['currency'];
+      amountUSD = +data['amount'] * cryptoUsdPrice;
+      cryptoAmount = +data['amount'];
     }
-
-    // Set cryptoType to network
-    const cryptoType = data['currency'];
-
-    // Set txHash to txId:position
-    const txHash = data['txid'] + ':' + data['pos'];
-
-    // Set memo to paymentMethod (USD | network )
     const memo = paymentMethod;
 
     // If the transaction already exists, send an appropriate response
@@ -82,17 +92,16 @@ exports.receive = async (req, res) => {
     if (exists) {
       return res.status(200).send();
     }
-    const cryptoUsdPrice = await getCryptoPrice(cryptoType);
+
     const newReq = {
       body: {
         userId,
-        action: 'deposit', // since it's a deposit controller
-        cryptoType, // already extracted from IPN
-        txHash, // already extracted from IPN
-        amountUSD: +data['amount'] * cryptoUsdPrice, // assuming the IPN provides the amount in USD
-        cryptoAmount: +data['amount'], // assuming the IPN provides the amount in the cryptocurrency
-        status: 'completed', // start as completed
-        memo, // already extracted from IPN
+        action: 'deposit',
+        cryptoType,
+        amountUSD,
+        cryptoAmount,
+        status: 'completed',
+        memo,
       },
     };
 

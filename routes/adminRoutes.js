@@ -81,7 +81,8 @@ router.delete('/rewards/:rewardId', rewardController.deleteReward);
 //bounties
 router.get('/bounties/:bountyId', bountyController.getBounty);
 router.get('/bounties', bountyController.getAllBounties);
-router.patch('/bounties/:bountyId', bountyController.verifyBountyClaim);
+router.patch('/bounties/:bountyId/verify', bountyController.verifyBounty);
+router.patch('/bounties/:bountyId', bountyController.updateBounty);
 router.delete('/bounties/:bountyId', bountyController.deleteBounty);
 
 // Defaults

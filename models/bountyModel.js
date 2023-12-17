@@ -10,7 +10,11 @@ const bountySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Reward',
     },
-    isClaimed: Boolean,
+    claimedStatus: {
+      type: String,
+      enum: ['Pending', 'Claimed', 'Rejected', 'Banned'],
+    },
+    conditionsStatus: [Boolean],
     claimedOn: Date,
     proofOfContribution: String,
   },

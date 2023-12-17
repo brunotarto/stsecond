@@ -66,20 +66,24 @@ exports.getBounty = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.verifyBountyClaim = catchAsync(async (req, res, next) => {
+exports.verifyBounty = catchAsync(async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const bounty = await Bounty.findOne({
       _id: req.params.bountyId,
-      isClaimed: false,
+      claimedStatus: 'Pending',
     })
       .populate('rewardId')
       .session(session);
 
     if (!bounty) {
-      throw new Error('No unclaimed bounty found with that ID');
+      throw new Error('No pending bounty found with that ID');
+    }
+
+    if (!req.body.conditionsStatus) {
+      throw new Error('Please define Conditions Status');
     }
 
     await rewardUser(
@@ -90,7 +94,8 @@ exports.verifyBountyClaim = catchAsync(async (req, res, next) => {
     );
 
     // Update the bounty as claimed
-    bounty.isClaimed = true;
+    bounty.claimedStatus = 'Claimed';
+    bounty.conditionsStatus = req.body.conditionsStatus;
     bounty.claimedOn = new Date();
     await bounty.save({ session });
 
@@ -109,6 +114,45 @@ exports.verifyBountyClaim = catchAsync(async (req, res, next) => {
 
     return next(
       new AppError('Error verifying bounty claim: ' + error.message, 400)
+    );
+  }
+});
+
+exports.updateBounty = catchAsync(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const bounty = await Bounty.findOne({
+      _id: req.params.bountyId,
+    })
+      .populate('rewardId')
+      .session(session);
+
+    if (!bounty) {
+      throw new Error('No bounty found with that ID');
+    }
+
+    // Update the bounty as claimed
+    bounty.claimedStatus = req.body.claimedStatus;
+    bounty.conditionsStatus = req.body.conditionsStatus;
+    await bounty.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        bounty,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    return next(
+      new AppError('Error rejecting bounty claim: ' + error.message, 400)
     );
   }
 });
@@ -135,9 +179,12 @@ exports.submitBountyRequest = catchAsync(async (req, res, next) => {
   const { rewardId, proofOfContribution } = req.body;
 
   try {
-    const bounty = await Bounty.findOne({ rewardId, userId }).session(session);
+    const bounty = await Bounty.findOne({
+      rewardId,
+      userId,
+    }).session(session);
 
-    if (bounty) {
+    if (bounty && bounty.claimedStatus !== 'Rejected') {
       throw new Error('You already contributed for this reward');
     }
 
@@ -174,27 +221,34 @@ exports.submitBountyRequest = catchAsync(async (req, res, next) => {
         }
       }
     }
+    let newBounty;
+    if (bounty) {
+      bounty.claimedStatus = 'Pending';
+      bounty.proofOfContribution += ' * ' + proofOfContribution;
+      await bounty.save({ session });
+    } else {
+      let newBountyData = {
+        userId,
+        rewardId,
+        claimedStatus:
+          reward.insideValidations.length > 0 ? 'Claimed' : 'Pending',
+        proofOfContribution: proofOfContribution || 'Automated Validation',
+      };
 
-    let newBountyData = {
-      userId,
-      rewardId,
-      isClaimed: reward.insideValidations.length > 0, // Auto-claim if there are validation functions
-      proofOfContribution: proofOfContribution || 'Automated Validation',
-    };
-
-    const newBounty = await Bounty.create([newBountyData], { session });
+      newBounty = await Bounty.create([newBountyData], { session });
+    }
 
     if (reward.insideValidations.length > 0) {
       await rewardUser(userId, reward.value, session, newBounty._id);
     }
 
-    // await session.commitTransaction();
-    // session.endSession();
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json({
       status: 'success',
       data: {
-        bounty: newBounty,
+        bounty: bounty || newBounty,
       },
     });
   } catch (error) {

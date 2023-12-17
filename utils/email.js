@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const fs = require('fs').promises;
 const path = require('path');
 
-const email = 'support@' + process.env.FUNCTION.toLowerCase() + '.com';
+const email = process.env.EMAIL_USERNAME;
 
 const getEmailTransporter = () => {
   return nodemailer.createTransport({
@@ -61,9 +61,7 @@ const getEmailTemplate = async (templateName, data) => {
 const sendTemplatedEmail = async (templateName, subject, data) => {
   const emailData = await getEmailTemplate(templateName, data);
   if (emailData) {
-    if (data.emailFrom)
-      await sendEmail(data.email, subject, emailData, data.emailFrom);
-    else await sendEmail(data.email, subject, emailData);
+    await sendEmail(data.email, subject, emailData);
   } else {
     console.error(`Error: Email template "${templateName}" not found.`);
   }

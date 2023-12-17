@@ -67,10 +67,12 @@ async function getReferralsAdmin(userId) {
 exports.getReferrals = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
   const referrals = await getReferrals(userId);
+  let referralCode = req.user.referralCode;
 
+  if (req.user.isDemo === true) referralCode = '*demo*';
   res.status(200).json({
     status: 'success',
-    referralCode: req.user.referralCode,
+    referralCode,
     data: {
       referrals,
     },

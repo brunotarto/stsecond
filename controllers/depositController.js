@@ -57,7 +57,6 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
 
     res.status(200).json({
       message: 'Deposit transaction created',
-      data: { newTransaction },
     });
   } catch (error) {
     // Rollback the transaction on error
