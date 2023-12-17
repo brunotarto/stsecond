@@ -27,13 +27,27 @@ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 // Parse incoming JSON data
 app.use(express.json());
 
+let allowedOrigins = [
+  'https://xomble.com',
+  'https://www.xomble.com',
+  'https://88.99.198.205',
+  'http://88.99.198.205',
+];
+if (process.env.NODE_ENV === 'development')
+  allowedOrigins.push('http://127.0.0.1:4200');
+
 const corsOptions = {
-  origin: '*', // or the specific origin you want to allow
+  origin: function (origin, callback) {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true, // to allow cookies and headers to be sent along with the request
 };
 
 app.use(cors(corsOptions));
-
 // Serve static files from the public folder
 app.use(express.static(`${__dirname}/public`));
 
