@@ -62,8 +62,8 @@ exports.createDeposit = catchAsync(async (req, res, next) => {
     // Rollback the transaction on error
     await session.abortTransaction();
     session.endSession();
-
-    return next(new AppError('Error creating deposit transaction', 400));
+    console.log(error);
+    return new AppError('Error creating deposit transaction', 400);
   }
 });
 
