@@ -102,6 +102,7 @@ exports.receive = async (req, res) => {
         cryptoType,
         amountUSD,
         cryptoAmount,
+        txHash,
         status: 'completed',
         memo,
       },
