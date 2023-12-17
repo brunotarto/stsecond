@@ -15,6 +15,7 @@ const { initializeCronJobs } = require('./utils/cronJob');
 const {
   xombleCorsMiddleware,
   ipnCorsMiddleware,
+  xombleAndUndefinedCorsMiddleware,
 } = require('./utils/corsMiddleware');
 
 const globalErrorHandler = require('./controllers/errorController');
@@ -45,7 +46,12 @@ app.use(cookieParser());
 // Mount plan and user routers
 app.use('/api/v1/users', xombleCorsMiddleware, limiter.general, userRouter);
 app.use('/api/v1/ipn', ipnCorsMiddleware, limiter.ipn, ipnRouter);
-app.use('/api/v1/market', limiter.general, marketRouter);
+app.use(
+  '/api/v1/market',
+  xombleAndUndefinedCorsMiddleware,
+  limiter.general,
+  marketRouter
+);
 app.use(
   '/api/v1/positions',
   xombleCorsMiddleware,

@@ -7,6 +7,7 @@ const corsOptionsIpn = {
     if (
       !origin ||
       origin === 'http://88.99.198.205' ||
+      origin === '88.99.198.205' ||
       origin === 'https://88.99.198.205'
     ) {
       callback(null, true);
@@ -21,7 +22,9 @@ const corsOptionsIpn = {
 const corsOptionsXomble = {
   origin: function (origin, callback) {
     if (
-      ['https://xomble.com', 'https://www.xomble.com'].includes(origin) ||
+      ['https://xomble.com', 'https://www.xomble.com', 'xomble.com'].includes(
+        origin
+      ) ||
       process.env.NODE_ENV === 'development'
     ) {
       callback(null, true);
@@ -32,5 +35,22 @@ const corsOptionsXomble = {
   credentials: true,
 };
 
+const corsOptionsXombleAndUndefined = {
+  origin: function (origin, callback) {
+    if (
+      ['https://xomble.com', 'https://www.xomble.com', 'xomble.com'].includes(
+        origin
+      ) ||
+      process.env.NODE_ENV === 'development' ||
+      !origin
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
 exports.xombleCorsMiddleware = cors(corsOptionsXomble);
+exports.xombleAndUndefinedCorsMiddleware = cors(corsOptionsXombleAndUndefined);
 exports.ipnCorsMiddleware = cors(corsOptionsIpn);
