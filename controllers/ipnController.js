@@ -48,7 +48,7 @@ exports.receive = async (req, res) => {
     // Extract userId and planId from the label
 
     const userId = data['label'];
-    const cryptoType = data['currency'];
+    const cryptoType = data['currency'].toUpperCase();
     const txHash = data['txid'];
 
     const user = await User.findById(userId);
@@ -73,7 +73,7 @@ exports.receive = async (req, res) => {
         return res.status(200).send();
       }
       const cryptoUsdPrice = await getCryptoPrice(cryptoType);
-      paymentMethod = data['currency'];
+      paymentMethod = cryptoType;
       amountUSD = +data['amount'] * cryptoUsdPrice;
       cryptoAmount = +data['amount'];
     }
@@ -83,8 +83,7 @@ exports.receive = async (req, res) => {
       txHash,
       userId,
     });
-    console.log(txHash, userId);
-    console.log(existingTransaction);
+
     if (existingTransaction) {
       return res.status(200).send();
     }
