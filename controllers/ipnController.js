@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const Transaction = require('../models/transModel');
 const User = require('../models/userModel');
 const cryptoPriceModel = require('../models/cryptoPriceModel');
+const depositController = require('./depositController');
 
 async function transactionExists(txhash, userId) {
   const existingTransaction = await Transaction.findOne({
