@@ -30,7 +30,8 @@ async function getTransaction(_id) {
 
 exports.receive = async (req, res) => {
   const data = req.body;
-
+  console.log('ipn called');
+  console.log(data);
   if (+data['cryptocurrencyapi.net'] < 3) {
     return res.status(200).send();
   }
