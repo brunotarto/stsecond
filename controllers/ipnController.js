@@ -4,14 +4,6 @@ const User = require('../models/userModel');
 const cryptoPriceModel = require('../models/cryptoPriceModel');
 const depositController = require('./depositController');
 
-async function transactionExists(txhash, userId) {
-  const existingTransaction = await Transaction.findOne({
-    txhash,
-    userId,
-  });
-  return !!existingTransaction;
-}
-
 async function getCryptoPrice(symbol) {
   const symbolPrice = await cryptoPriceModel.findOne({
     symbol,
@@ -31,8 +23,6 @@ async function getTransaction(_id) {
 
 exports.receive = async (req, res) => {
   const data = req.body;
-  console.log('ipn called');
-  console.log(data);
   if (+data['cryptocurrencyapi.net'] < 3) {
     return res.status(200).send();
   }
@@ -89,9 +79,13 @@ exports.receive = async (req, res) => {
     }
     const memo = paymentMethod;
 
-    // If the transaction already exists, send an appropriate response
-    const exists = await transactionExists(txHash, userId);
-    if (exists) {
+    const existingTransaction = await Transaction.findOne({
+      txHash,
+      userId,
+    });
+    console.log(txHash, userId);
+    console.log(existingTransaction);
+    if (existingTransaction) {
       return res.status(200).send();
     }
 
@@ -109,7 +103,7 @@ exports.receive = async (req, res) => {
     };
 
     // Call the createDeposit method with the new request object
-    await depositController.createDeposit(newReq, res);
+    depositController.createDeposit(newReq, res);
   } else if (data['type'] === 'out' && data['txid']) {
     // withdraw logic
     // get transaction Id

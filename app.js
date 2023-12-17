@@ -1,6 +1,5 @@
 const express = require('express');
 const morgan = require('morgan');
-const cors = require('cors');
 
 const userRouter = require('./routes/userRoutes');
 const ipnRouter = require('./routes/ipnRoutes');
@@ -13,6 +12,10 @@ const limiter = require('./utils/limiter');
 const cookieParser = require('cookie-parser');
 const updatesAndIntervals = require('./utils/updatesAndIntervals');
 const { initializeCronJobs } = require('./utils/cronJob');
+const {
+  xombleCorsMiddleware,
+  ipnCorsMiddleware,
+} = require('./utils/corsMiddleware');
 
 const globalErrorHandler = require('./controllers/errorController');
 const authController = require('./controllers/authController');
@@ -27,28 +30,6 @@ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 // Parse incoming JSON data
 app.use(express.json());
 
-let allowedOrigins = [
-  'https://xomble.com',
-  'https://www.xomble.com',
-  'https://88.99.198.205',
-  'http://88.99.198.205',
-];
-if (process.env.NODE_ENV === 'development')
-  allowedOrigins.push('http://127.0.0.1:4200');
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    console.log(origin);
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // to allow cookies and headers to be sent along with the request
-};
-
-app.use(cors(corsOptions));
 // Serve static files from the public folder
 app.use(express.static(`${__dirname}/public`));
 
@@ -62,18 +43,26 @@ app.use(cookieParser());
 
 // 2) Routes
 // Mount plan and user routers
-app.use('/api/v1/users', limiter.general, userRouter);
-app.use('/api/v1/ipn', limiter.ipn, ipnRouter);
+app.use('/api/v1/users', xombleCorsMiddleware, limiter.general, userRouter);
+app.use('/api/v1/ipn', ipnCorsMiddleware, limiter.ipn, ipnRouter);
 app.use('/api/v1/market', limiter.general, marketRouter);
 app.use(
   '/api/v1/positions',
+  xombleCorsMiddleware,
   limiter.general,
   authController.protect,
   positionRouter
 );
-app.use('/api/v1/orders', limiter.general, authController.protect, orderRouter);
+app.use(
+  '/api/v1/orders',
+  xombleCorsMiddleware,
+  limiter.general,
+  authController.protect,
+  orderRouter
+);
 app.use(
   '/api/v1/admin',
+  xombleCorsMiddleware,
   limiter.general,
   authController.protect,
   authController.restrictTo('Admin'),
