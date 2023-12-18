@@ -127,8 +127,7 @@ exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
 
   await sendTemplatedEmail(
     'welcome',
-    'Verify Your Email to Complete Your Xomble Registration' +
-      process.env.FUNCTION,
+    'Verify Your Email to Complete Your Xomble Registration (Resent)',
     { email: user.email, verificationUrl }
   );
 

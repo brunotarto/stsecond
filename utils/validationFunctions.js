@@ -54,7 +54,7 @@ exports.validateVerifyReferralsOver10 = async function (user) {
   });
 
   if (referrals < 10) {
-    return 'Your verified referrals is: ' + referrals;
+    return 'Your verified referrals are: ' + referrals;
   }
   return true;
 };
@@ -66,7 +66,7 @@ exports.validateVerifyReferralsOver100 = async function (user) {
   });
 
   if (referrals < 100) {
-    return 'Your verified referrals is: ' + referrals;
+    return 'Your verified referrals are: ' + referrals;
   }
   return true;
 };
@@ -79,7 +79,7 @@ exports.validateSingleDepositBetween25And100 = async function (user) {
   });
 
   if (deposit === 0) {
-    return 'Your verified referrals is: ' + referrals;
+    return 'You need a deposit between 25 and 100 USD';
   }
   return true;
 };
@@ -92,7 +92,7 @@ exports.validateSingleDepositBetween100And1000 = async function (user) {
   });
 
   if (deposit === 0) {
-    return 'Your verified referrals is: ' + referrals;
+    return 'You need a deposit between 100 and 1,000 USD';
   }
   return true;
 };
@@ -105,7 +105,7 @@ exports.validateSingleDepositBetween1000And10000 = async function (user) {
   });
 
   if (deposit === 0) {
-    return 'Your verified referrals is: ' + referrals;
+    return 'You need a single deposit between $1,000 and $10,000';
   }
   return true;
 };
