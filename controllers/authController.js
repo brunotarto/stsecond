@@ -35,7 +35,9 @@ const createSendToken = (user, statusCode, res) => {
 
 exports.signup = catchAsync(async (req, res, next) => {
   try {
-    const existingUser = await User.findOne({ email: req.body.email });
+    const email = req.body.email.trim();
+
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(new AppError('User already exists with this email', 400));
     }
@@ -50,8 +52,7 @@ exports.signup = catchAsync(async (req, res, next) => {
 
     // Create a new user object (but don't save yet)
     const newUser = new User({
-      name: req.body.name,
-      email: req.body.email,
+      email,
       password: req.body.password,
       passwordConfirm: req.body.passwordConfirm,
       referrer: referrer ? referrer._id : undefined,
@@ -69,7 +70,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     await sendTemplatedEmail(
       'welcome',
       'Verify Your Email to Complete Your Registration',
-      { email: newUser.email, verificationUrl }
+      { email, verificationUrl }
     );
 
     // Send response without authentication token
@@ -90,11 +91,13 @@ exports.signup = catchAsync(async (req, res, next) => {
 });
 
 exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
-  if (typeof req.body.email !== 'string' || req.body.email.trim() === '') {
+  const email = req.body.email.trim();
+
+  if (typeof email !== 'string' || email === '') {
     return next(new AppError('Invalid email provided', 400));
   }
 
-  const user = await User.findOne({ email: req.body.email });
+  const user = await User.findOne({ email });
 
   if (!user) {
     return next(new AppError('User not found', 404));
@@ -138,7 +141,7 @@ exports.resendVerificationEmail = catchAsync(async (req, res, next) => {
 });
 
 exports.verifyEmail = catchAsync(async (req, res, next) => {
-  const token = req.params.token;
+  const token = req.params.token.trim();
   if (typeof token !== 'string' || token.trim() === '') {
     return next(new AppError('Invalid email provided', 400));
   }
@@ -161,7 +164,8 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
 
 exports.login = catchAsync(async (req, res, next) => {
   // Retrieve the email and password from the request body
-  const { email, password } = req.body;
+  const password = req.body.password;
+  const email = req.body.email.trim();
 
   // Check if either email or password is missing
   if (!email || !password) {
