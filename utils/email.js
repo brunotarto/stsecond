@@ -59,13 +59,12 @@ const getEmailTemplate = async (templateName, data) => {
 };
 
 const sendTemplatedEmail = async (templateName, subject, data) => {
-  return true;
-  // const emailData = await getEmailTemplate(templateName, data);
-  // if (emailData) {
-  //   await sendEmail(data.email, subject, emailData);
-  // } else {
-  //   console.error(`Error: Email template "${templateName}" not found.`);
-  // }
+  const emailData = await getEmailTemplate(templateName, data);
+  if (emailData) {
+    await sendEmail(data.email, subject, emailData);
+  } else {
+    console.error(`Error: Email template "${templateName}" not found.`);
+  }
 };
 
 module.exports = sendTemplatedEmail;
